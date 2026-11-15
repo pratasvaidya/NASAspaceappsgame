@@ -23,6 +23,50 @@ const HOLD_SECONDS = 0.35;    // hold SPACE this long to start patching
 const WALK_SPEED = 160;       // walking on bare Martian ground
 const PATH_SPEED = 220;       // running on the paved pathways
 const DUST_FACTOR = 0.55;     // dust makes you this much slower
+const TUT_MAX = 55;           // training always finishes before a minute is up
+const TUT_HOLD = 1.5;         // seconds to hold SPACE in the patching practice
+const ESCALATE = 0.04;        // storms get 4% stronger every Sol
+
+/* Replayability: three difficulties, a random "mission twist" every run, a score, and badges. */
+const DIFFS = {
+  easy:   { name: 'Cadet',     icon: '🌱', blurb: 'Gentler storms and easier nights',  hit: 0.75, night: 0.8, start: 100, mult: 0.8 },
+  normal: { name: 'Astronaut', icon: '🚀', blurb: 'The real mission',                         hit: 1,    night: 1,   start: 100, mult: 1 },
+  hard:   { name: 'Commander', icon: '🔥', blurb: 'Stronger storms, a hungrier base, fewer supplies', hit: 1.25, night: 1.1, start: 90, mult: 1.3 },
+};
+const TWISTS = [
+  { id: 'plain',  icon: '📍', name: 'Standard Landing Site', text: 'A normal landing site. No surprises!', mods: {} },
+  { id: 'sunny',  icon: '☀️', name: 'Sunny Plateau',  text: 'Solar panels make 60% more Power, but you landed with less Food.', mods: { solar: 1.6, start: { food: -20 } } },
+  { id: 'garden', icon: '🌱', name: 'Garden Dome',    text: 'Crop Incubators grow 50% more Food, but you landed with less Oxygen.', mods: { grow: 1.5, start: { oxygen: -20 } } },
+  { id: 'shield', icon: '🛡️', name: 'Shield Ridge',   text: 'Shields cost less Power (21 instead of 30), but you landed with less Power.', mods: { shield: 0.7, start: { power: -15 } } },
+  { id: 'dusty',  icon: '🌪️', name: 'Dusty Valley',   text: 'Dust scrubbers use twice the Power, but panels you sweep give 50% more Power.', mods: { scrub: 2, sweep: 1.5 } },
+];
+const BADGES = [
+  { id: 'survivor',  icon: '🏆', name: 'Mars Survivor',       text: 'Finish all 10 Sols',                       test: (s) => s.result === 'won' },
+  { id: 'dodger',    icon: '🛡️', name: 'Storm Dodger',        text: 'Block 3 storms in one mission',            test: (s) => s.stats.blocked >= 3 },
+  { id: 'fixit',     icon: '🔧', name: 'Fix-It Pro',          text: 'Reset 3 broken systems in one mission',    test: (s) => s.stats.fixed >= 3 },
+  { id: 'scientist', icon: '🔬', name: 'Junior Scientist',    text: 'Collect 5 ⭐ research in one mission',      test: (s) => s.research >= 5 },
+  { id: 'calm',      icon: '😎', name: 'Cool Under Pressure', text: 'Win without any bar dropping under 25',    test: (s) => s.result === 'won' && s.stats.minRes >= 25 },
+  { id: 'commander', icon: '🔥', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
+];
+const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
+
+/* The training: under a minute, learn by doing. Each step points at a pad with the pink arrow. */
+const TUT_STEPS = [
+  { target: 'terminal_comms', text: 'Walk to the 📡 Comms pad and press SPACE',
+    icon: '📡', title: 'Comms Center',
+    body: `<p>Every Sol starts here. You get a <b>real NASA space-weather</b> news report that says <b>which storm is coming and when</b>.</p>
+           <p>The Sol clock only starts when <i>you</i> press Start.</p>` },
+  { target: 'terminal_shields', text: 'Run up to the 🛡️ Shields pad (north) and press SPACE',
+    icon: '🛡️', title: 'North Shields',
+    body: `<p>Shields block a storm, but only if you raise them <b>before</b> it hits.</p>
+           <div class="chips"><span class="chip cost">−30 ⚡ Power</span></div>
+           <p><b>Nothing is free!</b> Watch your ⚡ Power bar drop when you press Got it.</p>`,
+    after: () => { S.res.power = 70; toast('⚡ See that? Power dropped by 30. Everything has a price!', 'bad'); } },
+  { target: 'terminal_lifesupport', hold: true, text: '💨 Life Support is broken! Run west and HOLD SPACE for 2 seconds',
+    icon: '🔧', title: 'You patched it!',
+    body: `<p>When a storm breaks something, supplies <b>leak out</b>. Holding SPACE on the red pad <b>slows the leak</b>.</p>
+           <p>Then ask Earth for a reset code at 📡 Comms. Real messages take about <b>25 minutes</b> each way, so in this game it takes <b>25 seconds</b>. Hold on until it arrives!</p>` },
+];
 
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
 const TILES_PATH = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.png';
@@ -84,6 +128,10 @@ const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z_]/g, ''); /
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const shortDate = (iso) => String(iso || '').slice(0, 10);
+const store = {   // saved on this device only; always safe if storage is blocked
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked: that's fine */ } },
+};
 
 function fatal(msg) {
   $('loading').hidden = true;
@@ -218,7 +266,9 @@ function buildEvent(base) {
   } else if (ev.kind !== 'calm') {
     ev.realNote = 'This story is inspired by real NASA science (it is not a live reading). See the NASA Archives.';
   }
-  Object.keys(ev.hit || {}).forEach((k) => { ev.hit[k] = Math.max(5, Math.round(ev.hit[k] * ev.scale / 5) * 5); });
+  // difficulty and the Sol number make storms stronger (real-data strength is already in ev.scale)
+  ev.level = DIFFS[S.diff].hit * (1 + ESCALATE * (S.sol - 1));
+  Object.keys(ev.hit || {}).forEach((k) => { ev.hit[k] = Math.max(5, Math.round(ev.hit[k] * ev.scale * ev.level / 5) * 5); });
   ev.arriveAt = ev.arrive ? Math.round(randInt(ev.arrive[0], ev.arrive[1]) / 5) * 5 : null;
   return ev;
 }
@@ -252,9 +302,39 @@ const S = {
   scrubCost: 0,
   result: null,
   lossReason: '',
+  diff: 'normal',         // easy | normal | hard (remembered between visits)
+  twist: TWISTS[0],       // this mission's random landing-site twist
+  stats: { blocked: 0, fixed: 0, minRes: 100 },
+  final: null,            // score, best score and new badges, worked out once when the mission ends
 };
+S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 'normal';
+
+// training state (only used while S.phase === 'tutorial')
+const T = { active: false, step: 0, started: false, elapsed: 0, hold: 0 };
+const tutorialSeen = () => !!store.get(KEY_TUT, false);
 
 const UI = { modalOpen: false, modalKind: null, modalRender: null, closable: true, lastSig: -1 };
+
+/* twist-aware numbers (every price and rate goes through these, so the screen always matches the game) */
+const mod = (k) => (S.twist.mods && S.twist.mods[k]) || 1;
+const solarRate = () => SOLAR_RATE * mod('solar');
+const scrubRate = () => SCRUB_RATE * mod('scrub');
+function actionCost(a) {
+  const c = { ...(a.cost || {}) };
+  if (a.id === 'shield') c.power = Math.round(SHIELD_COST * mod('shield'));
+  return c;
+}
+function actionGain(a) {
+  const g = { ...(a.gain || {}) };
+  if (a.id === 'grow') g.food = Math.round(g.food * mod('grow'));
+  if (a.id === 'sweep') g.power = Math.round(g.power * mod('sweep'));
+  return g;
+}
+function baseline() {
+  const m = DIFFS[S.diff].night, o = {};
+  Object.keys(BASELINE).forEach((k) => { o[k] = Math.round(BASELINE[k] * m); });
+  return o;
+}
 
 function pickBaseEvent() {
   if (!eventBag.length) {
@@ -269,13 +349,112 @@ function pickBaseEvent() {
   return ev;
 }
 
+/* "Start Mission": first-time players get the short training first. */
 function newGame() {
+  if (!tutorialSeen()) startTutorial(); else beginRun();
+}
+
+function beginRun() {
+  T.active = false;
   eventBag = [];
-  S.res = { power: 100, oxygen: 100, food: 100 };
+  S.twist = pick(TWISTS);                       // a different landing site every mission
+  const start = DIFFS[S.diff].start, d = (S.twist.mods && S.twist.mods.start) || {};
+  S.res = {};
+  Object.keys(RES).forEach((k) => { S.res[k] = clamp(start + (d[k] || 0), 10, MAX_RES); });
   S.research = 0;
   S.result = null;
   S.lossReason = '';
+  S.final = null;
+  S.stats = { blocked: 0, fixed: 0, minRes: 100 };
   startSol(1);
+}
+
+/* ---------------------------------------------------------------------
+   Training (under a minute): comms -> shields (see the price) -> hold-to-patch practice
+   --------------------------------------------------------------------- */
+function startTutorial() {
+  Object.assign(T, { active: true, step: 0, started: false, elapsed: 0, hold: 0 });
+  S.phase = 'tutorial';
+  S.res = { power: 100, oxygen: 100, food: 100 };
+  S.faults = {}; S.scrubbers = true; S.patching = false; S.signal = { status: 'idle', remaining: 0 };
+  S.event = null; S.sol = 1; S.timeLeft = CRISIS_SECONDS; S.research = 0;
+  S.twist = TWISTS[0];
+  if (scene) scene.teleportToSpawn();
+  showModal({
+    kind: 'tutorial', icon: '🎓', title: 'Mars Training',
+    body: `<p>Hi, astronaut! You run a tiny base on Mars. Keep these three bars above zero for <b>${SOL_GOAL} Sols</b> (Mars days):</p>
+      <div class="chips"><span class="chip gain">⚡ Power</span><span class="chip gain">💨 Oxygen</span><span class="chip gain">🍎 Food</span></div>
+      <div class="card"><b>3 things to know:</b><ul>
+        <li>☀️ Space <b>storms</b> break stuff.</li>
+        <li>💰 <b>Everything costs something.</b></li>
+        <li>📡 Earth answers <b>slowly</b>.</li></ul></div>
+      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys and follow the <b style="color:#ff5fa8">pink arrow ▼</b>.</p>`,
+    buttons: [
+      { label: "Let's go! ▶", cls: 'good', onClick: closeModal },
+      { label: 'Skip training', cls: 'secondary', onClick: skipTutorial },
+    ],
+    noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to start',
+    onClose: () => { if (T.active) T.started = true; },
+  });
+}
+
+function skipTutorial() {
+  if (!T.active) return;
+  T.active = false;
+  closeModal();
+  store.set(KEY_TUT, true);
+  beginRun();
+}
+
+function finishTutorial(auto) {
+  T.active = false;
+  store.set(KEY_TUT, true);
+  closeModal();
+  beginRun();
+  if (auto) toast('🎓 Training done! Good luck, astronaut!', 'good');
+}
+
+function openTutorialCard(i) {
+  const st = TUT_STEPS[i];
+  showModal({
+    kind: 'tutorial', icon: st.icon, title: st.title, body: st.body,
+    buttons: [{ label: 'Got it! ▶', cls: 'good', onClick: closeModal }],
+    noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to continue',
+    onClose: () => advanceTutorial(i),
+  });
+}
+
+function advanceTutorial(i) {
+  if (!T.active || T.step !== i) return;
+  const st = TUT_STEPS[i];
+  if (st.after) st.after();
+  T.step++; T.hold = 0;
+  if (T.step < TUT_STEPS.length) return;
+  showModal({
+    kind: 'tutorial', icon: '🚀', title: "You're ready!",
+    body: `<div class="card"><ul>
+        <li>🛡️ Raise shields <b>before</b> the storm hits.</li>
+        <li>🔧 If something breaks: ask Earth at 📡 Comms, then <b>HOLD SPACE</b> at the red pad.</li>
+        <li>⚖️ Check your three bars. <b>Every choice has a price.</b></li></ul></div>
+      <p class="hint">Each mission has a different storm order, landing site and real NASA data. Try all three difficulties and collect every badge!</p>`,
+    buttons: [{ label: '🚀 Start Sol 1', cls: 'good', onClick: closeModal }],
+    noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to start',
+    onClose: () => { if (T.active) finishTutorial(false); },
+  });
+}
+
+/* called every frame while training: counts the clock (hard stop) and watches the hold-to-patch practice */
+function tutorialTick(dt, zone, spaceDown, spaceHeld) {
+  if (T.started) {
+    T.elapsed += dt;
+    if (T.elapsed >= TUT_MAX) { T.active = false; finishTutorial(true); return; }
+  }
+  const st = TUT_STEPS[T.step];
+  if (!st || UI.modalOpen || !T.started) return;
+  if (!zone || zone.id !== st.target) { T.hold = 0; return; }
+  if (st.hold) {
+    if (spaceHeld) { T.hold += dt; if (T.hold >= TUT_HOLD) { T.hold = 0; openTutorialCard(T.step); } } else T.hold = 0;
+  } else if (spaceDown) openTutorialCard(T.step);
 }
 
 function startSol(n) {
@@ -342,6 +521,7 @@ function stormArrives() {
   S.arrived = true;
   if (protectedNow()) {
     S.blocked = true;
+    S.stats.blocked++;
     toast(ev.protect === 'shields' ? '🛡️ The shields blocked the storm!' : '🌙 Panels were folded away. Dust missed them!', 'good');
   } else {
     S.faults[ev.faultTerminal] = true;
@@ -374,9 +554,10 @@ function endSol() {
   else lines.push({ ok: true, text: `☀️ Solar panels made +${Math.round(S.solar)} Power.` });
   if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `💨 Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
 
-  const afterDay = { ...S.res };
-  addAll(BASELINE, -1);
-  lines.push({ ok: false, text: `🌙 Night-time life support: −${BASELINE.oxygen} Oxygen, −${BASELINE.food} Food, −${BASELINE.power} Power` });
+  const night0 = baseline();
+  addAll(night0, -1);
+  lines.push({ ok: false, text: `🌙 Night-time life support: −${night0.oxygen} Oxygen, −${night0.food} Food, −${night0.power} Power` });
+  S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
 
   const dead = Object.keys(S.res).find((k) => S.res[k] <= 0);
   let next;
@@ -418,8 +599,8 @@ function tick(dt) {
   if (ev.arriveAt != null && !S.arrived && CRISIS_SECONDS - S.timeLeft >= ev.arriveAt) stormArrives();
 
   // steady power flows
-  if (!S.retracted) S.solar += addRes('power', SOLAR_RATE * dt);
-  if (scrubbersOn()) { const d = addRes('power', -SCRUB_RATE * dt); S.scrubCost -= d; }
+  if (!S.retracted) S.solar += addRes('power', solarRate() * dt);
+  if (scrubbersOn()) { const d = addRes('power', -scrubRate() * dt); S.scrubCost -= d; }
 
   // a broken system leaks resources until it is reset (holding SPACE there slows the leak)
   const ft = activeFault();
@@ -436,6 +617,7 @@ function tick(dt) {
       if (UI.modalKind === 'comms') renderCurrentModal();
     }
   }
+  S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
   if (checkLose()) return;
   if (S.timeLeft <= 0) { S.timeLeft = 0; endSol(); }
 }
@@ -444,13 +626,18 @@ function tick(dt) {
    Objective (drives HUD text and the bouncing arrow in the world)
    --------------------------------------------------------------------- */
 function objective() {
+  if (S.phase === 'tutorial') {
+    const st = TUT_STEPS[T.step];
+    if (!T.started || !st) return { text: '', target: null };
+    return { text: `🎓 Training ${T.step + 1}/${TUT_STEPS.length} · ${st.text}`, target: st.target };
+  }
   if (S.phase === 'briefing') return { text: '📡 Go to the Comms Center and read today\'s briefing (clock is paused)', target: 'terminal_comms' };
   if (S.phase !== 'crisis') return { text: '', target: null };
   const ev = S.event, ft = ev.faultTerminal;
   if (ft && !S.arrived) {
     const left = Math.max(0, Math.ceil(ev.arriveAt - (CRISIS_SECONDS - S.timeLeft)));
     if (ev.protect && !protectedNow()) {
-      return { text: `⏰ ${ev.emoji} Arrives in ${left}s! ${ev.protect === 'shields' ? 'Raise the shields (−30 ⚡)' : 'Retract the solar panels'} in the North Wing`, target: 'terminal_shields' };
+      return { text: `⏰ ${ev.emoji} Arrives in ${left}s! ${ev.protect === 'shields' ? `Raise the shields (−${actionCost({ id: 'shield' }).power} ⚡)` : 'Retract the solar panels'} in the North Wing`, target: 'terminal_shields' };
     }
     if (ev.protect) return { text: `✅ Protected! Brace for it… ${left}s`, target: null };
     return { text: `⏰ ${ev.emoji} Trouble arrives in ${left}s. Shields can't stop this one!`, target: null };
@@ -473,10 +660,13 @@ function setHtml(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = v; hudC
 
 function renderHUD() {
   $('hud').hidden = S.phase === 'title';
-  setText($('solNum'), 'sol', `Sol ${S.sol}`);
+  $('skipTut').hidden = S.phase !== 'tutorial';
+  const training = S.phase === 'tutorial';
+  setText($('solNum'), 'sol', training ? 'Training' : `Sol ${S.sol}`);
+  setText($('solOf'), 'solof', training ? 'practice' : `of ${SOL_GOAL}`);
   const paused = S.phase !== 'crisis' || UI.modalKind === 'archives';
-  setText($('clock'), 'clock', S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
-  setText($('phaseLabel'), 'phase', S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? (paused ? 'Paused' : 'Active Crisis') : 'Night');
+  setText($('clock'), 'clock', training ? '🎓' : S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
+  setText($('phaseLabel'), 'phase', training ? 'No rush' : S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? (paused ? 'Paused' : 'Active Crisis') : 'Night');
   const warn = S.phase === 'crisis' && S.timeLeft <= WARN_SECONDS;
   $('clockBox').classList.toggle('paused', paused);
   $('clockBox').classList.toggle('warn', warn);
@@ -505,7 +695,10 @@ function renderHUD() {
     if (S.retracted) chips += `<span class="chip info">🌙 Panels folded</span>`;
     if (isDusty()) chips += `<span class="chip alert">🐢 Dust slows you down</span>`;
   }
-  if (S.phase !== 'title') chips += `<span class="chip info">⭐ Research ${S.research}</span>`;
+  if (S.phase !== 'title' && S.phase !== 'tutorial') {
+    chips += `<span class="chip info">⭐ Research ${S.research}</span>`;
+    chips += `<span class="chip info">${DIFFS[S.diff].icon} ${DIFFS[S.diff].name}</span><span class="chip info">${S.twist.icon} ${S.twist.name}</span>`;
+  }
   setHtml($('status'), 'status', chips);
 }
 
@@ -538,11 +731,13 @@ function renderCurrentModal() {
   UI.closable = cfg.closable !== false;
   const modal = $('modal');
   const scroll = modal.scrollTop;
+  const wasOpen = !!modal.querySelector('details[open]');      // keep "Science corner" open when the window refreshes
   modal.innerHTML = `
     <h2><span class="big">${cfg.icon || ''}</span><span>${cfg.title}</span></h2>
     ${cfg.body}
     <div class="buttons"></div>
-    ${UI.closable ? '<p class="hint keys">Press <kbd>ESC</kbd> or <kbd>SPACE</kbd> to close</p>' : ''}`;
+    ${UI.closable ? `<p class="hint keys">${cfg.keyHint || 'Press <kbd>ESC</kbd> or <kbd>SPACE</kbd> to close'}</p>` : ''}`;
+  if (wasOpen) modal.querySelectorAll('details').forEach((d) => { d.open = true; });
   const box = modal.querySelector('.buttons');
   const buttons = (cfg.buttons || []).slice();
   if (UI.closable && !cfg.noClose) buttons.push({ label: 'Close', cls: 'secondary', onClick: closeModal });
@@ -556,13 +751,16 @@ function renderCurrentModal() {
   });
   modal.scrollTop = scroll;
   UI.lastSig = Math.ceil(S.signal.remaining);
+  if (cfg.after) cfg.after(modal);
 }
 
 function closeModal() {
+  const done = UI.modalRender && UI.modalRender.onClose;
   UI.modalOpen = false;
   UI.modalKind = null;
   UI.modalRender = null;
   $('modal-backdrop').hidden = true;
+  if (done) done();
 }
 
 /* ---------------------------------------------------------------------
@@ -596,11 +794,20 @@ function eventCard(ev) {
   return `<span class="tag">${ev.source} · ${ev.category}</span>
     <p><b>${ev.emoji} ${ev.title}</b></p>
     <p>${ev.story}</p>
-    ${realCard(ev)}
     ${timing}
-    <div class="card science"><b>🔬 Real science:</b> ${ev.lesson}</div>
-    <div class="card"><b>💡 Tip:</b> ${ev.advice}</div>
-    <div class="card"><b>📖 Words to know</b><ul>${words}</ul></div>`;
+    <div class="card"><b>💡 What to do:</b> ${ev.advice}</div>
+    ${realCard(ev)}
+    <details class="more"><summary>🔬 Science corner &amp; new words (tap to open)</summary>
+      <div class="card science"><b>🔬 Real science:</b> ${ev.lesson}</div>
+      <div class="card"><b>📖 Words to know</b><ul>${words}</ul></div>
+    </details>`;
+}
+
+function missionCard() {
+  const d = DIFFS[S.diff], tw = S.twist, ev = S.event;
+  const stronger = Math.round((ev.level / d.hit - 1) * 100);
+  return `<div class="chips"><span class="chip info">${d.icon} ${d.name}</span><span class="chip info">${tw.icon} ${tw.name}</span></div>
+    <p class="hint">${tw.text}${stronger > 0 ? ` Storms are ${stronger}% stronger than on Sol 1.` : ''}</p>`;
 }
 
 function openComms(msg) {
@@ -612,7 +819,7 @@ function openComms(msg) {
       if (S.phase === 'briefing') {
         return {
           icon: t.icon, title: `Sol ${S.sol} Morning Briefing`,
-          body: `${eventCard(ev)}<p class="hint">The clock starts when you press the button!</p>`,
+          body: `${missionCard()}${eventCard(ev)}<p class="hint">The clock starts when you press the button!</p>`,
           buttons: [{ label: `⏱️ Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
           noClose: true,
         };
@@ -662,7 +869,7 @@ function actionAvailability(tid, a) {
   if (a.type === 'once') {
     if (S.used[key]) return 'Already used this Sol';
     if (faulted) return 'Locked: reset first';
-    const lacking = canAfford(a.cost);
+    const lacking = canAfford(actionCost(a));
     if (lacking) return `Not enough ${RES[lacking].label}`;
   }
   if (a.id === 'shield' && S.arrived && ev.protect === 'shields') return 'Too late: the storm already hit';
@@ -695,7 +902,7 @@ function openWing(id, msg) {
             body += `<h3>☀️ ${a.name}</h3>
               <p>Panels are <b>${S.retracted ? 'FOLDED AWAY' : 'OUT'}</b>. Out, they make Power. Folded, they are safe from dust but make nothing.</p>
               ${costChips({}, {}, 0, S.retracted ? '<span class="chip gain">Folded: safe from dust storms</span><span class="chip cost">No solar Power</span>'
-                : `<span class="chip gain">+${SOLAR_RATE} ⚡ every second</span><span class="chip cost">Dust storm can hurt them</span>`)}`;
+                : `<span class="chip gain">+${+solarRate().toFixed(2)} ⚡ every second</span><span class="chip cost">Dust storm can hurt them</span>`)}`;
             buttons.push({ label: S.retracted ? '☀️ Extend Panels' : '🌙 Retract Panels', cls: '', onClick: () => {
               S.retracted = !S.retracted;
               const late = S.retracted && S.arrived && ev.protect === 'retract' && !S.blocked;
@@ -706,7 +913,7 @@ function openWing(id, msg) {
             const on = scrubbersOn();
             body += `<h3>💨 ${a.name}</h3>
               <p>Martian dust is sharp and sneaky. With scrubbers <b>${on ? 'ON' : 'OFF'}</b> the base is ${on ? 'clean' : '<b>dusty, and you walk slowly</b>'}.</p>
-              ${costChips({}, {}, 0, on ? `<span class="chip cost">−${SCRUB_RATE} ⚡ every second</span>` : '<span class="chip cost">🐢 Slow walking</span><span class="chip gain">Saves Power</span>')}`;
+              ${costChips({}, {}, 0, on ? `<span class="chip cost">−${+scrubRate().toFixed(2)} ⚡ every second</span>` : '<span class="chip cost">🐢 Slow walking</span><span class="chip gain">Saves Power</span>')}`;
             buttons.push({ label: reason ? `Dust Scrubbers (${reason})` : (S.scrubbers ? '⛔ Turn Scrubbers OFF' : '✅ Turn Scrubbers ON'), disabled: !!reason, onClick: () => {
               S.scrubbers = !S.scrubbers;
               openWing(id, { text: S.scrubbers ? 'Scrubbers are running.' : 'Scrubbers are off: saving Power, but dust will slow you down!', bad: !S.scrubbers });
@@ -714,7 +921,7 @@ function openWing(id, msg) {
           }
           return;
         }
-        body += `<h3>${a.name}</h3><p>${a.blurb}</p>${costChips(a.cost, a.gain, a.stars)}`;
+        body += `<h3>${a.name}</h3><p>${a.blurb}</p>${costChips(actionCost(a), actionGain(a), a.stars)}`;
         if (a.id === 'shield' && !reason) {
           const hint = ev.protect === 'shields' ? '' : (ev.faultTerminal ? 'Careful: shields can\'t stop today\'s problem!' : 'No storm is coming today, so shields would be wasted.');
           if (hint) body += `<p class="hint">⚠️ ${hint}</p>`;
@@ -722,7 +929,7 @@ function openWing(id, msg) {
         buttons.push({
           label: reason ? `${a.name} (${reason})` : a.name, disabled: !!reason,
           onClick: () => {
-            addAll(a.cost, -1); addAll(a.gain, 1);
+            addAll(actionCost(a), -1); addAll(actionGain(a), 1);
             if (a.stars) S.research += a.stars;
             S.used[`${id}:${a.id}`] = true;
             if (a.id === 'shield') S.shieldUp = true;
@@ -746,6 +953,7 @@ function openWing(id, msg) {
           onClick: () => {
             addAll(RESET_COST, -1);
             S.faults[id] = false;
+            S.stats.fixed++;
             S.patching = false;
             toast(`✅ ${t.name} is fixed!`, 'good');
             if (!checkLose()) openWing(id, { text: '🔧 Reset complete! The leak has stopped.' });
@@ -797,41 +1005,87 @@ function openArchives() {
 /* ---------------------------------------------------------------------
    Title / end screens
    --------------------------------------------------------------------- */
+function badgeGrid(earned) {
+  return `<div class="badges">${BADGES.map((b) => `<div class="badge ${earned[b.id] ? 'got' : 'locked'}">
+      <span class="bi">${earned[b.id] ? b.icon : '🔒'}</span><span><b>${b.name}</b><small>${b.text}</small></span></div>`).join('')}</div>`;
+}
+
 function showTitle() {
   showModal({
     kind: 'title',
-    build: () => ({
-      closable: false, icon: '🚀', title: 'Mars Outpost Survival',
-      body: `<p>You are the only astronaut at a Mars outpost! Keep <b>⚡ Power</b>, <b>💨 Oxygen</b> and <b>🍎 Food</b> above zero for <b>${SOL_GOAL} Sols</b>. A <b>sol</b> is a Mars day.</p>
-      <ul>
-        <li>Move with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys.</li>
-        <li>You run <b>faster on the pathways</b> than on the bare ground, so stick to the paths when time is short!</li>
-        <li>Stand on a pad and press <span class="keys"><kbd>SPACE</kbd></span> to use it.</li>
-        <li>Each Sol starts at <b>📡 Comms</b> with a <b>real NASA space-weather</b> briefing. Then you have <b>${CRISIS_SECONDS} seconds</b>!</li>
-        <li>Nothing is free: shields cost Power, science trips cost Oxygen, solar panels can be folded away.</li>
-        <li>When something breaks, Earth must send a reset code (it takes time!). Meanwhile, <b>HOLD SPACE</b> at the broken pad to slow the leak.</li>
-        <li>At night the base uses ${BASELINE.oxygen} Oxygen, ${BASELINE.food} Food and ${BASELINE.power} Power.</li>
-      </ul>
-      <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">🛰️ ${DONKI.label}</span></div>`,
-      buttons: [{ label: DONKI.status === 'loading' ? '⏳ Contacting NASA…' : '🚀 Start Mission', cls: 'good', disabled: DONKI.status === 'loading', onClick: () => { newGame(); } }],
-    }),
+    build: () => {
+      const earned = store.get(KEY_BADGES, {}), best = store.get(KEY_BEST, {});
+      const got = BADGES.filter((b) => earned[b.id]).length;
+      const diffs = Object.entries(DIFFS).map(([id, d]) =>
+        `<button class="diff ${S.diff === id ? 'on' : ''}" data-diff="${id}"><span class="di">${d.icon}</span><b>${d.name}</b><small>${d.blurb}</small>${best[id] ? `<em>Best: ${best[id]}</em>` : ''}</button>`).join('');
+      const loading = DONKI.status === 'loading';
+      const buttons = [{ label: loading ? '⏳ Contacting NASA…' : '🚀 Start Mission', cls: 'good', disabled: loading, onClick: () => { newGame(); } }];
+      if (tutorialSeen()) buttons.push({ label: '🎓 Training (under 1 min)', cls: 'secondary', disabled: loading, onClick: () => { startTutorial(); } });
+      return {
+        closable: false, icon: '🚀', title: 'Mars Outpost Survival',
+        body: `<p>You are the only astronaut on Mars! Keep <b>⚡ Power</b>, <b>💨 Oxygen</b> and <b>🍎 Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
+          <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!</p>
+          ${tutorialSeen() ? '' : '<p class="hint">First time? A quick training (under a minute) comes first.</p>'}
+          <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
+          <p class="hint">Every mission has a different storm order, a random landing site, and real NASA data.</p>
+          <h3>Badges: ${got}/${BADGES.length}</h3>${badgeGrid(earned)}
+          <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">🛰️ ${DONKI.label}</span></div>`,
+        buttons,
+        after: (m) => m.querySelectorAll('.diff').forEach((el) => el.addEventListener('click', () => {
+          S.diff = el.dataset.diff; store.set(KEY_DIFF, S.diff); renderCurrentModal();
+        })),
+      };
+    },
   });
+}
+
+/* Score, personal best and badges are worked out once, when a mission ends. Saved on this device only. */
+function finalizeRun() {
+  if (S.final) return S.final;
+  const d = DIFFS[S.diff], won = S.result === 'won';
+  const parts = {
+    sols: (won ? SOL_GOAL : Math.max(0, S.sol - 1)) * 100,
+    supplies: won ? Object.values(S.res).reduce((t, v) => t + Math.ceil(v), 0) : 0,
+    science: S.research * 40,
+  };
+  const score = Math.round((parts.sols + parts.supplies + parts.science) * d.mult);
+  const best = store.get(KEY_BEST, {}), prev = best[S.diff] || 0;
+  const isNew = score > prev;
+  if (isNew) { best[S.diff] = score; store.set(KEY_BEST, best); }
+  const have = store.get(KEY_BADGES, {});
+  const fresh = BADGES.filter((b) => !have[b.id] && b.test(S));
+  fresh.forEach((b) => { have[b.id] = true; });
+  if (fresh.length) store.set(KEY_BADGES, have);
+  const next = BADGES.find((b) => !have[b.id]) || null;
+  S.final = { score, prev, isNew, parts, fresh, next };
+  return S.final;
 }
 
 function showEndModal() {
   const won = S.result === 'won';
+  const f = finalizeRun(), d = DIFFS[S.diff];
+  const scoreCard = `<div class="card score">
+      <div class="bigscore">⭐ Score: ${f.score}</div>
+      <div class="hint">Sols survived ${f.parts.sols} + supplies left ${f.parts.supplies} + research ${f.parts.science}${d.mult !== 1 ? ` &times; ${d.mult} (${d.name})` : ''}</div>
+      <p>${f.isNew ? `🎉 <b>New best on ${d.name}!</b>${f.prev ? ` (old best: ${f.prev})` : ''}` : `Your best on ${d.name}: <b>${f.prev}</b>`}</p></div>`;
+  const badgeCard = (f.fresh.length ? `<div class="card real"><b>🏅 New badge${f.fresh.length > 1 ? 's' : ''}!</b> ${f.fresh.map((b) => `${b.icon} <b>${b.name}</b>`).join(' &nbsp; ')}</div>` : '') +
+    (f.next ? `<p class="hint">Next badge to try: ${f.next.icon} <b>${f.next.name}</b>: ${f.next.text}.</p>` : '<p class="hint">🌟 You have every badge. Wow, space legend!</p>');
   showModal({
     kind: 'end', closable: false,
     icon: won ? '🏆' : '💔',
     title: won ? 'Mission Complete!' : 'Mission Failed',
     body: won
-      ? `<p>You survived all ${SOL_GOAL} Sols on Mars! You handled space weather, long Earth delays and tough trade-offs like a real NASA crew.</p>
+      ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! You handled space weather, long Earth delays and tough trade-offs like a real NASA crew.</p>
          <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>⭐ Research collected: <b>${S.research}</b></div>
-         <p class="hint">Every game is different: the storms are shuffled and the real NASA data changes. Can you get more ⭐ next time?</p>`
+         ${scoreCard}${badgeCard}`
       : `<p>${S.lossReason} You made it to Sol ${S.sol}. ⭐ Research: ${S.research}.</p>
          <div class="card science"><b>🎓 What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
+         ${scoreCard}${badgeCard}
          <p class="hint">Real astronauts and mission planners also learn from things that go wrong. Every run is different, so try again!</p>`,
-    buttons: [{ label: '🔁 Play Again', cls: 'good', onClick: () => newGame() }],
+    buttons: [
+      { label: '🔁 Play Again', cls: 'good', onClick: () => newGame() },
+      { label: '🏠 Change challenge', cls: 'secondary', onClick: () => { S.phase = 'title'; showTitle(); } },
+    ],
   });
 }
 
@@ -1040,7 +1294,15 @@ class MarsScene extends Phaser.Scene {
     // terminal detection
     const zone = UI.modalOpen ? null : this.nearestZone();
     const faultedHere = !!(zone && S.phase === 'crisis' && S.faults[zone.id]);
-    if (zone) {
+    if (zone && S.phase === 'tutorial') {
+      const st = TUT_STEPS[T.step];
+      let label = '👆 Follow the pink arrow first!';
+      if (st && zone.id === st.target) {
+        const n = Math.min(5, Math.floor((T.hold / TUT_HOLD) * 5));
+        label = st.hold ? (T.hold > 0 ? `🔧 Patching… ${'▰'.repeat(n)}${'▱'.repeat(5 - n)}` : '👉 HOLD SPACE (keep it down!)') : 'Press SPACE';
+      }
+      this.prompt.setText(label).setPosition(p.x, p.y - 34).setVisible(true);
+    } else if (zone) {
       const label = S.patching ? '🔧 Patching… leak slowed!'
         : faultedHere ? `${TERMINALS[zone.id].name} is BROKEN!
 TAP SPACE: open  ·  HOLD SPACE: patch the leak`
@@ -1048,9 +1310,14 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
       this.prompt.setText(label).setPosition(p.x, p.y - 34).setVisible(true);
     } else this.prompt.setVisible(false);
 
-    if (UI.modalOpen) {
+    const modalAtStart = UI.modalOpen;      // a card opened by this very SPACE press must not be closed by it
+    if (S.phase === 'tutorial') tutorialTick(dt, zone, spaceDown, this.space.isDown);
+
+    if (modalAtStart) {
       this.holding = false; S.patching = false;
       if ((spaceDown || escDown) && UI.closable) closeModal();
+    } else if (S.phase === 'tutorial') {
+      this.holding = false; S.patching = false;       // training has its own SPACE handling (above)
     } else {
       if (spaceDown && zone && S.phase !== 'night' && S.phase !== 'over') {
         if (faultedHere) { this.holding = true; this.holdT = 0; }   // tap = open, hold = patch
@@ -1071,7 +1338,8 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
     const pulse = 0.5 + 0.5 * Math.sin(time / 180);
     const obj = objective();
     for (const z of this.zones) {
-      z.alert.setVisible(!!S.faults[z.id]).setAlpha(0.35 + 0.65 * pulse);
+      const practiceBroken = S.phase === 'tutorial' && T.started && TUT_STEPS[T.step] && TUT_STEPS[T.step].hold && TUT_STEPS[T.step].target === z.id;
+      z.alert.setVisible(!!S.faults[z.id] || !!practiceBroken).setAlpha(0.35 + 0.65 * pulse);
       z.base.setAlpha(obj.target === z.id ? 0.5 + 0.5 * pulse : 1);
     }
     const tz = this.zones.find((z) => z.id === obj.target);
@@ -1084,12 +1352,13 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
    Boot
    --------------------------------------------------------------------- */
 window.addEventListener('error', (e) => { if (!scene) fatal(e.message); });
+$('skipTut').addEventListener('click', (e) => { e.currentTarget.blur(); skipTutorial(); });
 
 if (typeof Phaser === 'undefined') {
   fatal('Phaser could not be loaded from the internet.');
 } else {
   const start = () => new Phaser.Game({
-    type: Phaser.AUTO,
+    type: /[?&]canvas/.test(location.search) ? Phaser.CANVAS : Phaser.AUTO,   // ?canvas forces the simpler renderer (for graphics-challenged computers)
     parent: 'game',
     backgroundColor: '#c1440e',
     pixelArt: true,

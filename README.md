@@ -14,11 +14,21 @@ Then open <http://localhost:8000>. No account, no install, no build step. (It ne
 
 Controls: WASD or arrow keys to walk (you run about 35% faster on the paved pathways than on bare ground), SPACE to use a pad. **Tap** SPACE to open a terminal. **Hold** SPACE at a broken terminal to patch the leak.
 
+**First time?** A guided training (it ends by itself before one minute, and you can skip it) shows the three big ideas by doing them: read the briefing at Comms, raise the shields and watch the Power bar drop (nothing is free), then hold SPACE to patch a broken pad. You can replay it from the title screen.
+
+## Why you will want to play again
+
+- **Three challenges:** 🌱 Cadet (gentler storms), 🚀 Astronaut, 🔥 Commander (stronger storms, a hungrier base, fewer supplies).
+- **A new landing site every mission** (random twist): Sunny Plateau (more solar Power, less Food), Garden Dome (more Food from crops, less Oxygen), Shield Ridge (cheaper shields, less Power), Dusty Valley (scrubbers cost double, swept panels give more Power), or a Standard site.
+- **Shuffled storms and real data:** the eight events come in a different order each mission, arrive at different times, and are scaled by a different real DONKI record each time. Storms also get 4% stronger every Sol.
+- **Score and personal best** for each challenge, plus **six badges** to collect (Storm Dodger, Fix-It Pro, Junior Scientist, Cool Under Pressure, Mars Survivor, Commander). Scores and badges are saved only in your own browser.
+
+
 ## The trade-offs (nothing is free)
 
 | Where | Choice | Price |
 |---|---|---|
-| North Wing | Electromagnetic Shielding | −30 Power. Only helps if raised **before** the storm arrives, and only against storms shields can stop. |
+| North Wing | Electromagnetic Shielding | −30 Power (21 at Shield Ridge). Only helps if raised **before** the storm arrives, and only against storms shields can stop. |
 | North Wing | Retract solar panels (dust storms) | Saves the panels but you lose their Power (+0.15 ⚡ per second) |
 | East Wing | Crop Incubators | −20 Power, −15 Oxygen for +30 Food |
 | West Wing | Oxygen Generator | −15 Power for +30 Oxygen |
@@ -27,7 +37,7 @@ Controls: WASD or arrow keys to walk (you run about 35% faster on the paved path
 | South Wing | Dust Scrubbers | −0.1 Power per second. Off = dust slows your walking |
 | Command Hub | Ask Earth for help | Takes 25 seconds (the "25-minute" Earth round trip). You can't just wait: the broken system keeps leaking. |
 
-Each Sol: briefing (clock paused) → 90 seconds of crisis → night (−15 Oxygen, −10 Food, −10 Power) → summary with a "real constraint" lesson. Lose if any resource hits 0. Win by finishing Sol 10.
+Each Sol: briefing (clock paused) → 90 seconds of crisis → night (−15 Oxygen, −10 Food, −10 Power on Astronaut) → summary with a "real constraint" lesson. Lose if any resource hits 0. Win by finishing Sol 10.
 
 ## NASA data used, and why
 
@@ -40,6 +50,7 @@ Each Sol: briefing (clock paused) → 90 seconds of crisis → night (−15 Oxyg
 The title screen and the NASA Archives terminal always say whether the DONKI data is **LIVE**, a **SAVED COPY** from this browser's cache (6 hour cache), or a **saved sample** of real records downloaded on 14 Nov 2026 (used only if NASA can't be reached). We never present saved data as live.
 
 Notes:
+- If the graphics look broken on an old computer, open the game with `?canvas` added to the address (for example `http://localhost:8000/?canvas`) to use the simpler renderer.
 - The flare endpoint (`/DONKI/FLR`) was returning an error when this was built. The game handles that and just uses the other record types.
 - The default `DEMO_KEY` has a low rate limit. Results are cached for 6 hours. For classrooms, get a free key at <https://api.nasa.gov> and open the game with `?key=YOUR_KEY`.
 - Damage amounts, event timing and balance numbers are game design, not NASA measurements.

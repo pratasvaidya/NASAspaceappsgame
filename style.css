@@ -142,3 +142,35 @@ table.sum td:last-child { text-align: right; font-weight: 700; }
 /* real-data cards */
 #modal .card.real { background: #e8f7ff; border-color: var(--blue); box-shadow: 0 4px 0 var(--blue); }
 #modal .tag.live { background: var(--green); color: var(--ink); }
+
+/* ---------- training, difficulty, badges ---------- */
+#skipTut { position: fixed; right: 14px; bottom: 18px; z-index: 15; font: inherit; font-weight: 700; font-size: 20px; cursor: pointer;
+  background: var(--purple); color: var(--white); border: 5px solid var(--ink); border-radius: 22px; padding: 2px 18px 7px;
+  box-shadow: 0 5px 0 var(--ink); text-shadow: var(--o2); letter-spacing: .03em; }
+#skipTut:hover { transform: translateY(-2px) rotate(-1deg); }
+#modal details.more { margin: 12px 0; }
+#modal details.more summary { cursor: pointer; font-weight: 700; color: var(--purple); padding: 6px 4px; }
+#modal .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0; }
+.diff { font: inherit; color: var(--ink); cursor: pointer; background: var(--white); border: 5px solid var(--ink); border-radius: 22px;
+  padding: 6px 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; box-shadow: 0 5px 0 var(--ink); }
+.diff .di { font-size: 30px; line-height: 1; }
+.diff b { font-size: 21px; }
+.diff small { font-size: 13px; line-height: 1.2; opacity: .8; }
+.diff em { font-style: normal; font-size: 13px; font-weight: 700; background: var(--yellow); border: 3px solid var(--ink); border-radius: 12px; padding: 0 8px; margin-top: 3px; }
+.diff:hover { transform: translateY(-2px) rotate(-1deg); }
+.diff.on { background: var(--yellow); transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
+#modal .badges { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0; }
+.badge { display: flex; gap: 10px; align-items: center; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 10px; background: #aaf5b8; }
+.badge .bi { font-size: 26px; }
+.badge small { display: block; font-size: 13px; line-height: 1.2; opacity: .8; }
+.badge.locked { background: #e6e1ee; border-color: #8d84a3; color: #5b5273; }
+#modal .card.score { text-align: center; background: #fff7c9; }
+.bigscore { font-size: 34px; font-weight: 700; color: var(--orange); text-shadow: var(--o3); letter-spacing: .03em; }
+@media (max-width: 560px) {
+  #modal .diffs, #modal .badges { grid-template-columns: 1fr; }
+  #skipTut { font-size: 16px; }
+}
+
+/* the action buttons stay visible even when a window is taller than the screen */
+#modal .buttons { position: sticky; bottom: -24px; z-index: 2; background: linear-gradient(to bottom, rgba(255,246,224,0), var(--cream) 22%);
+  padding: 18px 0 14px; margin-top: 4px; }
