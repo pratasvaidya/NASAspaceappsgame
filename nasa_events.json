@@ -1,0 +1,161 @@
+{
+  "_note": "Event stories are simplified and kid-friendly. For solar events (CME, flare, geomagnetic storm, particle storm) the game ALSO pulls real records from the NASA DONKI API when it can, and uses their real strength to scale the damage. 'hit' values are game-balance numbers, not NASA measurements.",
+  "glossary": {
+    "sol": "A sol is one day on Mars. It lasts about 24 hours and 39 minutes, a little longer than an Earth day.",
+    "radiation": "Radiation is invisible energy that can hurt living cells. Space has more of it than Earth's surface because Earth's air and magnetic field protect us.",
+    "power budget": "A power budget is how much electricity you have to spend each day. Every machine you turn on uses some of it."
+  },
+  "events": [
+    {
+      "id": "cme", "kind": "cme", "emoji": "🌞",
+      "title": "The Sun Burped a Giant Cloud!",
+      "source": "NASA DONKI", "category": "Coronal Mass Ejection (CME)",
+      "story": "The Sun threw out a giant bubble of charged particles, called a coronal mass ejection. It is racing toward Mars! When it hits, the radiation will damage the West Life Support computer, and the oxygen machine will start losing air.",
+      "words": [["CME", "A huge bubble of gas and magnetic field thrown out by the Sun."], ["Radiation", "Invisible energy that can hurt machines and living cells."]],
+      "advice": "Raise the North Shields BEFORE the cloud arrives (it costs 30 Power). If you wait, you will have to patch the leak and ask Earth for help.",
+      "faultTerminal": "terminal_lifesupport", "faultLabel": "West Life Support is damaged and leaking oxygen",
+      "protect": "shields", "arrive": [30, 45],
+      "hit": { "oxygen": 30 },
+      "hitText": "Radiation damaged the oxygen machine.",
+      "lesson": "Real mission planners get warnings about solar storms ahead of time. Shielding costs power, so they have to decide early whether the storm is worth the price."
+    },
+    {
+      "id": "flare", "kind": "flare", "emoji": "⚡",
+      "title": "Bright Flash from the Sun!",
+      "source": "NASA DONKI", "category": "Solar Flare (FLR)",
+      "story": "A solar flare, a sudden flash of light and energy, burst out of the Sun. Its energy will scramble the South Airlock sensors and dust scrubbers when it hits.",
+      "words": [["Solar flare", "A sudden burst of light and energy from the Sun's surface."]],
+      "advice": "Raise the North Shields before it hits, or be ready to patch the airlock and ask Earth for a reset code.",
+      "faultTerminal": "terminal_airlock", "faultLabel": "South Airlock sensors are scrambled (dust scrubbers are offline)",
+      "protect": "shields", "arrive": [20, 35],
+      "hit": { "power": 25 },
+      "hitText": "The flare's energy overloaded the power lines.",
+      "lesson": "Light from a flare travels fast: about 8 minutes to Earth, and 12 or more to Mars. That leaves very little warning, which is why astronauts need protection ready in advance."
+    },
+    {
+      "id": "gst", "kind": "gst", "emoji": "🧲",
+      "title": "Space Weather Storm!",
+      "source": "NASA DONKI", "category": "Geomagnetic Storm (GST)",
+      "story": "A storm of solar wind is rushing past. Earth has a big magnetic bubble that pushes space weather away, but Mars does not, so the base feels it more! The East Hydroponics grow-light computer will fail when the storm hits.",
+      "words": [["Geomagnetic storm", "When solar wind shakes a planet's magnetic field."], ["Kp index", "A 0 to 9 score for how strong a geomagnetic storm is. 5 or more is a storm."]],
+      "advice": "Raise the North Shields before the storm hits, or patch the grow lights and ask Earth for help.",
+      "faultTerminal": "terminal_hydroponics", "faultLabel": "East Hydroponics grow lights are failing",
+      "protect": "shields", "arrive": [25, 40],
+      "hit": { "food": 25 },
+      "hitText": "The grow lights failed and plants wilted.",
+      "lesson": "Mars has no global magnetic field like Earth's, so there is less natural protection from space weather. Outposts there need to bring their own."
+    },
+    {
+      "id": "sep", "kind": "sep", "emoji": "☄️",
+      "title": "Speedy Particle Shower!",
+      "source": "NASA DONKI", "category": "Solar Energetic Particles (SEP)",
+      "story": "Tiny super-fast particles from the Sun are raining down. Humans and plants do not like them! When they arrive, the West Life Support controls will be knocked out.",
+      "words": [["SEP", "Solar energetic particles: very fast bits of atoms shot out by the Sun."]],
+      "advice": "Raise the North Shields before they arrive. Otherwise patch the leak and call Earth.",
+      "faultTerminal": "terminal_lifesupport", "faultLabel": "West Life Support is knocked out and losing air",
+      "protect": "shields", "arrive": [15, 30],
+      "hit": { "oxygen": 25, "power": 10 },
+      "hitText": "Particles knocked out the air machine.",
+      "lesson": "Energetic particles can arrive in minutes to hours after a flare. Astronauts would hide in the most shielded part of their home until it passes."
+    },
+    {
+      "id": "dust", "kind": "dust", "emoji": "🌪️",
+      "title": "Giant Dust Storm!",
+      "source": "NASA Mars exploration (inspired by Mars rover weather)", "category": "Mars Dust Storm",
+      "story": "A huge cloud of red dust is blowing across Mars. When it arrives, it will jam the South Airlock and scratch the solar panels. Dust shields can't stop it, but folding the panels away can.",
+      "words": [["Regolith", "The loose dusty soil on Mars. It is sharp and can harm machines and lungs."]],
+      "advice": "Go to the North Wing and RETRACT the solar panels before the dust arrives. You lose sunshine power while they are folded.",
+      "faultTerminal": "terminal_airlock", "faultLabel": "South Airlock is jammed with dust (scrubbers are offline)",
+      "protect": "retract", "arrive": [25, 40],
+      "hit": { "power": 30 },
+      "hitText": "Dust scratched and covered the solar panels.",
+      "lesson": "In 2018 a planet-wide dust storm blocked the sunlight, and NASA's solar-powered Opportunity rover went quiet. Folding panels away is a real trade: you save the hardware but lose power."
+    },
+    {
+      "id": "crops", "kind": "crops", "emoji": "🥬",
+      "title": "Space Lettuce Radiation Alert!",
+      "source": "NASA OSDR", "category": "Space Biology: Plants and Radiation",
+      "story": "Our space lettuce is stressed! Space radiation can change how plant genes work, and the sensors say the crops are getting too much. When the radiation peaks, the East Hydroponics grow lights will fail.",
+      "words": [["Hydroponics", "Growing plants in water with nutrients instead of soil."]],
+      "advice": "Raise the North Shields before the peak, or patch the grow lights and ask Earth for a reset.",
+      "faultTerminal": "terminal_hydroponics", "faultLabel": "East Hydroponics grow lights are failing",
+      "protect": "shields", "arrive": [25, 40],
+      "hit": { "food": 30 },
+      "hitText": "Some of the lettuce did not survive the radiation.",
+      "lesson": "Astronauts on the International Space Station grew and ate red romaine lettuce in 2015 using NASA's Veggie garden. NASA's OSDR shares data from space plant experiments like these."
+    },
+    {
+      "id": "microbes", "kind": "microbes", "emoji": "🦠",
+      "title": "Tiny Helpers Are Sleepy!",
+      "source": "NASA OSDR", "category": "Space Biology: Microbes",
+      "story": "Tiny living things called microbes help clean the water and air in our base. But space changes how microbes grow! Soon the helpers get sleepy and West Life Support will struggle.",
+      "words": [["Microbes", "Living things too small to see, like bacteria and yeast."]],
+      "advice": "Shields can't wake up microbes! Patch the air machine and ask Earth for the reset code.",
+      "faultTerminal": "terminal_lifesupport", "faultLabel": "West Life Support is struggling (sleepy microbes)",
+      "protect": null, "arrive": [10, 15],
+      "hit": { "oxygen": 25 },
+      "hitText": "The sleepy microbes cleaned less air.",
+      "lesson": "Microbes behave differently in space, so scientists study them. The space station already recycles about 98% of its water, and every bit saved is less to launch from Earth."
+    },
+    {
+      "id": "calm", "kind": "calm", "emoji": "☀️",
+      "title": "Clear Skies, Quiet Sun!",
+      "source": "NASA DONKI", "category": "Quiet Space Weather",
+      "story": "Great news! The Sun is calm today and the sky is clear. The solar panels are soaking up extra sunshine.",
+      "words": [],
+      "advice": "Nothing will break today. Boost your systems, stock up, and try a research trip outside for some ⭐!",
+      "faultTerminal": null, "faultLabel": null, "protect": null, "arrive": null,
+      "bonus": { "power": 15 },
+      "bonusText": "Extra sunshine gave the batteries +15 Power!",
+      "hit": {},
+      "lesson": "Space weather is not always stormy. Mission teams use calm days for extra work, like science outside, and to stock up for stormy ones."
+    }
+  ],
+  "sampleDonki": {
+    "label": "Saved copy of real DONKI records downloaded on 14 Nov 2026",
+    "cme": [
+      { "id": "2026-10-15T20:24:00-CME-001", "time": "2026-10-15T20:24Z", "speed": 428, "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/CMEAnalysis/49126/-1" },
+      { "id": "2026-10-17T02:48:00-CME-001", "time": "2026-10-17T02:48Z", "speed": 1048, "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/CMEAnalysis/49151/-1" }
+    ],
+    "gst": [
+      { "id": "2026-10-31T18:00:00-GST-001", "time": "2026-10-31T18:00Z", "kp": 6, "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/GST/49348/-1" }
+    ],
+    "flr": [],
+    "sep": [],
+    "counts": { "cme": 89 }
+  },
+  "attributions": [
+    {
+      "name": "DONKI: Space Weather Database Of Notifications, Knowledge, Information",
+      "owner": "NASA Goddard Space Flight Center, Community Coordinated Modeling Center (CCMC)",
+      "used_for": "REAL DATA. When you start the game, it asks NASA's DONKI API for the last 30 days of coronal mass ejections, geomagnetic storms, solar flares and particle storms. A real record sets the strength of that day's storm (for example, faster CMEs and higher Kp storms hit harder).",
+      "url": "https://ccmc.gsfc.nasa.gov/tools/DONKI/",
+      "api": "https://api.nasa.gov"
+    },
+    {
+      "name": "OSDR: Open Science Data Repository (includes the former GeneLab)",
+      "owner": "NASA Space Biology / Biological and Physical Sciences",
+      "used_for": "STORY INSPIRATION (not live data). The plant radiation and microbe events and their science notes are written from the kinds of experiments OSDR shares.",
+      "url": "https://osdr.nasa.gov"
+    },
+    {
+      "name": "NASA Mars Exploration and Artemis program",
+      "owner": "NASA / Jet Propulsion Laboratory / NASA Artemis",
+      "used_for": "STORY INSPIRATION and facts. Sol length, Earth-Mars signal delay (about 3 to 22 minutes one way), the 2018 Mars dust storm, and the idea of radiation shelters, power budgets and life support for Moon and Mars bases.",
+      "url": "https://science.nasa.gov/mars/"
+    },
+    {
+      "name": "Sci-Fi RTS asset pack",
+      "owner": "Kenney (kenney.nl), CC0 license",
+      "used_for": "Tileset and astronaut artwork.",
+      "url": "https://kenney.nl"
+    },
+    {
+      "name": "Phaser 3",
+      "owner": "Phaser Studio, MIT license",
+      "used_for": "Game engine.",
+      "url": "https://phaser.io"
+    }
+  ],
+  "disclaimer": "This game is an educational project. Solar storm records are real NASA DONKI data when marked LIVE or SAVED COPY; everything else (the stories, damage amounts and timing) is simplified for play. NASA does not endorse or sponsor this game."
+}
