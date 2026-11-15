@@ -546,7 +546,7 @@ function startTutorial() {
         <li>:sun: Space <b>storms</b> break stuff.</li>
         <li>:coins: <b>Everything costs something.</b></li>
         <li>:broadcast: Earth answers <b>slowly</b>.</li></ul></div>
-      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys${IS_TOUCH ? ' (on a touch screen: the joystick, and the big SPACE button)' : ''} and follow the <b style="color:#ff5fa8">pink arrow</b> :arrow-fat-down:.</p>`,
+      <p>Training takes <b>under a minute</b>. ${IS_TOUCH ? 'Walk by dragging the <b>joystick</b> (bottom left), tap the big green <b>SPACE</b> button to use a pad,' : 'Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys'} and follow the <b style="color:#ff5fa8">pink arrow</b> :arrow-fat-down:.</p>`,
     buttons: [
       { label: "Let's go! :play:", cls: 'good', onClick: closeModal },
       { label: 'Skip training', cls: 'secondary', onClick: skipTutorial },
@@ -1116,7 +1116,7 @@ function renderHUD() {
   }
   if (S.phase !== 'title' && S.phase !== 'tutorial') {
     chips += `<span class="chip info">:star: Research ${S.research}</span>`;
-    chips += `<span class="chip info">${DIFFS[S.diff].icon} ${DIFFS[S.diff].name}</span><span class="chip info">${S.twist.icon} ${S.twist.name}</span>`;
+    chips += `<span class="chip info meta">${DIFFS[S.diff].icon} ${DIFFS[S.diff].name}</span><span class="chip info meta">${S.twist.icon} ${S.twist.name}</span>`;   // 'meta' chips hide on phones to save room
   }
   setHtml($('status'), 'status', chips);
 }
@@ -1451,7 +1451,9 @@ function showTitle() {
       return {
         closable: false, icon: ':rocket-launch:', title: 'Mars Outpost Survival',
         body: `${CREDIT}<p>You are the only astronaut on Mars! Keep <b>:lightning: Power</b>, <b>:wind: Oxygen</b> and <b>:orange: Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
-          <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!${IS_TOUCH ? ' On a touch screen, use the joystick and the SPACE button.' : ''}</p>
+          <p class="keys">${IS_TOUCH
+            ? 'Walk: drag the <b>joystick</b> &nbsp;·&nbsp; Use a pad: tap the green <kbd>SPACE</kbd> button (hold it for jobs) &nbsp;·&nbsp; Paths are faster!'
+            : 'Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!'}</p>
           ${tutorialSeen() ? '' : '<p class="hint">First time? A quick training (under a minute) comes first.</p>'}
           <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
           <p class="hint">Every mission has a different storm order, a random landing site, and real NASA data.</p>
@@ -1652,9 +1654,12 @@ class MarsScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     cam.startFollow(this.player, true, 0.1, 0.1);
-    let zoom = 1.5;
-    try { const z = parseFloat(new URLSearchParams(location.search).get('zoom')); if (z > 0.2 && z < 4) zoom = z; } catch (e) { /* default */ }
-    cam.setZoom(zoom);
+    let urlZoom = 0;
+    try { const z = parseFloat(new URLSearchParams(location.search).get('zoom')); if (z > 0.2 && z < 4) urlZoom = z; } catch (e) { /* default */ }
+    // small screens (phones) zoom out a little so you can see more of the base; recheck when the phone is turned
+    const fitZoom = () => cam.setZoom(urlZoom || clamp(Math.min(this.scale.width, this.scale.height) / 440, 1, 1.5));
+    fitZoom();
+    this.scale.on('resize', fitZoom);
 
     /* ---- input ---- */
     const kb = this.input.keyboard;
