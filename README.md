@@ -40,7 +40,7 @@ python -m http.server 8000
 
 Then open <http://localhost:8000>. No account, no install, no build step. (It needs internet for Phaser and the Fredoka font, and for live NASA data. Without internet it still plays using a saved copy of real data.) It also works as a static site, for example on GitHub Pages.
 
-**Controls:** WASD or arrow keys to walk (you run about 35% faster on the paved pathways), SPACE to use a pad. **Tap** SPACE to open a terminal; **hold** SPACE to patch a leak or do a job. **On a tablet or phone** an on-screen joystick and a big SPACE button appear automatically. Sound effects can be muted with the speaker button (top right).
+**Controls:** WASD or arrow keys to walk (you run about 35% faster on the paved pathways), SPACE to use a pad. **Tap** SPACE to open a terminal; **hold** SPACE to patch a leak or do a job. **On a tablet or phone** an on-screen joystick and a big SPACE button appear automatically. Done with the day early? Once nothing needs protecting or fixing, a **Start Night Cycle** button appears in the HUD and at Comms (or press **N**) to skip the rest of the clock. Any surprise still due that Sol happens first, and the solar panels and scrubbers keep running for the skipped time, so it never helps or hurts your bars. Sound effects can be muted with the speaker button (top right).
 
 **First time?** A guided training (it ends by itself before one minute, and you can skip it) shows the three big ideas by doing them: read the briefing at Comms, raise the shields and watch the Power bar drop (nothing is free), then hold SPACE to patch a broken pad. You can replay it from the title screen.
 
@@ -68,7 +68,7 @@ Then open <http://localhost:8000>. No account, no install, no build step. (It ne
 | South Wing | Dust Scrubbers | −0.1 Power per second. Off = dust slows your walking |
 | Command Hub | Ask Earth for help | Takes 25 seconds (a real Mars–Earth round trip takes 6 to 44 minutes). You can't just wait: the broken system keeps leaking. |
 
-Each Sol: briefing (clock paused) → 90 seconds of action → night (−15 Oxygen, −10 Food, −10 Power on Astronaut) → summary with a "real constraint" lesson. Lose if any resource hits 0. Win by finishing Sol 10.
+Each Sol: briefing (clock paused) → 90 seconds of action → night (−15 Oxygen, −10 Food, −10 Power on Astronaut) → summary with a "real constraint" lesson. Lose if any resource hits 0. Win by finishing Sol 10. The end screen lists what your base actually lived through (for example "Deflected 2 Coronal Mass Ejections", "Patched 1 hull breach"), each with one sentence on how real NASA engineers handle that problem.
 
 ## NASA data used, and why
 

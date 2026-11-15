@@ -5,10 +5,8 @@
    Mars Outpost Survival  (Phaser 3 + vanilla JS)
    ===================================================================== */
 
-/* ===== YOUR NASA API KEY =====
-   The shared 'DEMO_KEY' only allows a few requests per hour for everyone on the same network (a classroom or a
-   hackathon venue can use it up in minutes). Get your own free key in one minute at https://api.nasa.gov and paste
-   it here. You can also add ?key=YOUR_KEY to the address. */
+// ===== YOUR NASA API KEY =====
+
 const CREDIT = '<p class="credit">Created by Pratas Vaidya and Aahan Malhotra</p>';
 const NASA_API_KEY = 'wPRdrwN7DD6rgpJhqWwGC8D8BRQK6bqRLTzgzfPH';
 
@@ -78,6 +76,46 @@ const SURPRISES = {
   science: { icon: ':star:', kind: 'bonus', short: 'Rock find',
     lesson: 'NASA\'s Perseverance rover collects rock samples in sealed tubes so scientists can study them. Finding a good rock is only the start: the sample has to be collected carefully and its data sent home.' },
 };
+/* The end-of-mission log: what the player actually lived through, and how real NASA engineers handle that exact problem.
+   Each Sol records an outcome: good (blocked / patched / dodged / delivered), fixed (repaired after it hit) or bad (it got through). */
+const ENDURED = {
+  cme: { icon: ':sun:', one: 'Coronal Mass Ejection', many: 'Coronal Mass Ejections',
+    verb: { good: 'Deflected', fixed: 'Repaired the damage from', bad: 'Rode out' }, tag: { good: 'deflected' },
+    nasa: 'NASA space-weather forecasters (the team behind the DONKI data in this game) spot these clouds leaving the Sun a day or more early, so crews have time to hide in a storm shelter lined with water and supplies, which soak up the particles.' },
+  flare: { icon: ':lightning:', one: 'Solar Flare', many: 'Solar Flares',
+    verb: { good: 'Shielded the base from', fixed: 'Rebooted the airlock after', bad: 'Rode out' },
+    nasa: 'Flares can scramble computers, so engineers use extra-tough "radiation-hardened" chips and carry a spare: NASA\'s Curiosity rover has two computers and switched to its backup in 2013.' },
+  gst: { icon: ':magnet:', one: 'Geomagnetic Storm', many: 'Geomagnetic Storms',
+    verb: { good: 'Shielded the base from', fixed: 'Fixed the grow lights after', bad: 'Rode out' },
+    nasa: 'Mars has no magnetic bubble to hide behind, so NASA has studied habitats with thick walls 3D-printed from Martian soil, because a heavy layer of dirt blocks lots of space radiation.' },
+  sep: { icon: ':meteor:', one: 'Solar Particle Storm', many: 'Solar Particle Storms',
+    verb: { good: 'Deflected', fixed: 'Repaired life support after', bad: 'Rode out' }, tag: { good: 'deflected' },
+    nasa: 'On the Artemis I flight around the Moon, NASA tested a radiation vest called AstroRad on a test dummy to see how well it protects astronauts from speedy solar particles.' },
+  dust: { icon: ':tornado:', one: 'Giant Dust Storm', many: 'Giant Dust Storms',
+    verb: { good: 'Saved the solar panels from', fixed: 'Dug the airlock out after', bad: 'Rode out' }, tag: { good: 'panels saved' },
+    nasa: 'Dust storms can hide the Sun for weeks, so NASA is developing small nuclear power plants (called Fission Surface Power) for the Moon and Mars that keep a base running day and night, dust or no dust.' },
+  crops: { icon: ':leaf:', one: 'Space Lettuce Radiation Alert', many: 'Space Lettuce Radiation Alerts',
+    verb: { good: 'Protected the crops from', fixed: 'Saved the lettuce after', bad: 'Rode out' }, tag: { good: 'crops protected', fixed: 'crops saved' },
+    nasa: 'Scientists study plants grown in the Space Station\'s Veggie garden (the results are shared in NASA\'s OSDR) to find the toughest crops for shielded Mars greenhouses with LED grow lights.' },
+  microbes: { icon: ':virus:', one: 'OSDR Microbe Slowdown', many: 'OSDR Microbe Slowdowns',
+    verb: { good: 'Bounced back from', fixed: 'Bounced back from', bad: 'Struggled through' }, tag: { fixed: 'revived' },
+    nasa: 'The Space Station never trusts just one machine for air: it has backup oxygen generators and stored oxygen, and scientists study how microbes act in space (shared in NASA\'s OSDR) to keep living systems healthy.' },
+  calm: { icon: ':sun-horizon:', one: 'calm Sol', many: 'calm Sols', verb: { good: 'Enjoyed' }, nasa: null },
+  leak: { icon: ':meteor:', one: 'hull breach', many: 'hull breaches',
+    verb: { good: 'Patched', bad: 'Lived through' }, tag: { good: 'patched', bad: 'left leaking' },
+    nasa: 'Space Station modules are wrapped in layered "Whipple shields" that shatter tiny space rocks before they reach the wall, and crews keep patch kits ready for anything that gets through.' },
+  devil: { icon: ':tornado:', one: 'dust devil', many: 'dust devils',
+    verb: { good: 'Dodged', bad: 'Got scratched by' }, tag: { good: 'dodged', bad: 'scratched you' },
+    nasa: 'In 2025 NASA tested an Electrodynamic Dust Shield on the Moon that uses electricity to push dust off surfaces, a trick that could keep Mars solar panels clean without anyone suiting up.' },
+  supply: { icon: ':sparkle:', one: 'supply pod', many: 'supply pods',
+    verb: { good: 'Unpacked', bad: 'Missed' }, tag: { good: 'unpacked', bad: 'buried' }, faced: 'Spotted',
+    nasa: 'Rockets can only fly from Earth to Mars about every 26 months, when the planets line up, so NASA plans to send cargo ahead of the crew and pack spares for everything.' },
+  science: { icon: ':star:', one: 'rock sample', many: 'rock samples', tail: ' to Earth', faced: 'Found',
+    verb: { good: 'Sent', bad: 'Lost' }, tag: { good: 'sent home', bad: 'buried' },
+    nasa: 'NASA\'s Perseverance rover seals each rock sample in a super-clean tube so no Earth germs or dust can mix in, keeping the science safe until it can be studied.' },
+};
+const TAG_DEFAULT = { good: 'blocked', fixed: 'repaired', bad: 'endured' };
+
 const KEY_SOUND = 'marsOutpost.sound.v1';
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
@@ -374,6 +412,10 @@ const S = {
   carrying: null,         // something heavy being carried for a surprise
   solarMul: 1,            // lower while the solar panels are dusty after a dust devil
   final: null,            // score, best score and new badges, worked out once when the mission ends
+  log: [],                // what happened each Sol, for the end-of-mission log: { sol, id, outcome }
+  loggedSol: 0,           // the last Sol already written into the log
+  skipped: 0,             // seconds skipped by starting the night early this Sol
+  nightLock: 0,           // a surprise just fired from "Start Night Cycle": ignore repeat clicks until this time
 };
 S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 'normal';
 
@@ -478,6 +520,7 @@ function beginRun() {
   S.lossReason = '';
   S.final = null;
   S.stats = { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 };
+  S.log = []; S.loggedSol = 0;
   startSol(1);
 }
 
@@ -590,6 +633,7 @@ function startSol(n) {
   S.lost = {};
   S.solar = 0;
   S.scrubCost = 0;
+  S.skipped = 0;
   S.startRes = { ...S.res };
   if (scene && scene.clearDrop) scene.clearDrop();
   S.surprise = null;
@@ -628,6 +672,7 @@ const activeFault = () => { const ft = S.event && S.event.faultTerminal; return 
 function checkLose() {
   const dead = Object.keys(S.res).find((k) => S.res[k] <= 0);
   if (dead && S.phase !== 'over') {
+    if (S.phase === 'crisis') logSol(false);
     S.phase = 'over';
     S.result = 'lost';
     S.patching = false;
@@ -808,6 +853,54 @@ function surpriseLines(sp) {
   return [{ ok: false, text: `${d.icon} Surprise! You did not finish in time: the wind buried the ${d.short.toLowerCase()}.` }];
 }
 
+/* Write this Sol into the mission log (once). finished = the Sol reached night; otherwise the base was lost mid-Sol. */
+function logSol(finished) {
+  if (S.loggedSol === S.sol || !S.event) return;
+  S.loggedSol = S.sol;
+  const ev = S.event, ft = ev.faultTerminal, sp = S.surprise;
+  const add = (id, outcome) => { if (ENDURED[id]) S.log.push({ sol: S.sol, id, outcome }); };
+  if (!ft) { if (finished) add('calm', 'good'); }
+  else if (S.arrived) add(ev.id, S.blocked ? 'good' : S.faults[ft] ? 'bad' : 'fixed');
+  if (sp) {
+    if (sp.id === 'devil') add('devil', sp.hits ? 'bad' : 'good');
+    else if (sp.status === 'done') add(sp.id, 'good');
+    else if (finished || SURPRISES[sp.id].kind === 'disaster') add(sp.id, 'bad');
+  }
+}
+
+/* "Start Night Cycle": once nothing is left to protect or fix today, the player may skip the rest of the clock. */
+function canEndDay() {
+  if (S.phase !== 'crisis' || !S.event) return false;
+  const ev = S.event, sp = S.surprise;
+  if (ev.faultTerminal && !S.arrived && !protectedNow()) return false;      // a storm is still coming and the base is open to it
+  if (activeFault()) return false;                                          // something is broken and leaking
+  if (sp && sp.status === 'active' && SURPRISES[sp.id].kind === 'disaster') return false;
+  return true;
+}
+
+function endDayEarly() {
+  if (!canEndDay() || performance.now() < S.nightLock) return;
+  if (UI.modalOpen) closeModal();
+  if (S.plan && !S.surprise) {                     // a surprise was still planned for today: it happens now, before night falls
+    spawnSurprise();
+    S.nightLock = performance.now() + 1500;
+    return;
+  }
+  // the rest of the day still happens, just fast: the storm meets the shields, and panels and scrubbers keep running
+  if (S.event.faultTerminal && !S.arrived) stormArrives();
+  let left = S.timeLeft;
+  S.skipped = left;
+  while (left > 0) {
+    const dt = Math.min(1, left);
+    if (!S.retracted) S.solar += addRes('power', solarRate() * S.solarMul * dt);
+    if (scrubbersOn()) S.scrubCost -= addRes('power', -scrubRate() * dt);
+    left -= dt;
+  }
+  S.timeLeft = 0;
+  S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
+  endSol();
+}
+
 function endSol() {
   S.phase = 'night';
   S.patching = false;
@@ -815,6 +908,7 @@ function endSol() {
   const ev = S.event;
   const sp = S.surprise;
   if (sp && sp.status === 'active' && (sp.id === 'supply' || sp.id === 'science')) missSurprise(true);
+  logSol(true);
   clearTimeout(bannerTimer); $('banner').hidden = true;      // nothing from the day should cover the summary
   clearTimeout(toastTimer); $('toast').hidden = true;
   S.carrying = null;
@@ -839,6 +933,7 @@ function endSol() {
   if (S.retracted) lines.push({ ok: false, text: ':moon: Panels stayed folded: no solar power today.' });
   else lines.push({ ok: true, text: `:sun: Solar panels made +${Math.round(S.solar)} Power.` });
   if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `:wind: Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
+  if (S.skipped >= 1) lines.push({ ok: true, text: `:fast-forward: You started the night ${Math.round(S.skipped)} seconds early. The panels and scrubbers kept running for the rest of the day.` });
 
   const night0 = baseline();
   addAll(night0, -1);
@@ -943,7 +1038,7 @@ function objective() {
     if (ev.protect && !protectedNow()) {
       return { text: `:alarm: ${ev.emoji} Arrives in ${left}s! ${ev.protect === 'shields' ? `Raise the shields (−${actionCost({ id: 'shield' }).power} :lightning:)` : 'Retract the solar panels'} in the North Wing`, target: 'terminal_shields' };
     }
-    if (ev.protect) return { text: `:check-circle: Protected! Brace for it… ${left}s`, target: null };
+    if (ev.protect) return { text: `:check-circle: Protected! Brace for it… ${left}s${canEndDay() ? ', or start the night early' : ''}`, target: null };
     return { text: `:alarm: ${ev.emoji} Trouble arrives in ${left}s. Shields can't stop this one!`, target: null };
   }
   if (ft && S.faults[ft]) {
@@ -952,7 +1047,7 @@ function objective() {
     if (S.signal.status === 'waiting') return { text: `:hourglass-medium: Earth is thinking… HOLD SPACE at ${name} to slow the leak!`, target: ft };
     return { text: `:check-circle: Reset code ready! Go to ${name} and press Reset`, target: ft };
   }
-  return { text: ':wrench: Use your time wisely. Boost systems, or go for :star: research!', target: null };
+  return { text: `:wrench: Use your time wisely. Boost systems, or go for :star: research!${canEndDay() ? ' All done? Start the night early.' : ''}`, target: null };
 }
 
 /* ---------------------------------------------------------------------
@@ -976,6 +1071,7 @@ function crisisLabel(paused) {
 function renderHUD() {
   $('hud').hidden = S.phase === 'title';
   $('skipTut').hidden = S.phase !== 'tutorial';
+  $('nightBtn').hidden = UI.modalOpen || !canEndDay();
   const training = S.phase === 'tutorial';
   setText($('solNum'), 'sol', training ? 'Training' : `Sol ${S.sol}`);
   setText($('solOf'), 'solof', training ? 'practice' : `of ${SOL_GOAL}`);
@@ -1179,9 +1275,14 @@ function openComms(msg) {
       } else {
         sig = `<div class="card"><b>:check-circle: Earth replied!</b> The Reset button is now unlocked at <b>${TERMINALS[ft].name}</b>.</div>`;
       }
+      let night = '';
+      if (canEndDay()) {
+        night = `<div class="card"><b>:moon: All clear!</b> Nothing needs protecting or fixing right now. If you have finished your jobs, you can start the night instead of waiting for the clock.</div>`;
+        buttons.push({ label: ':moon: Start Night Cycle', cls: 'secondary', onClick: () => { endDayEarly(); if (UI.modalKind === 'comms') renderCurrentModal(); } });
+      }
       return {
         icon: t.icon, title: 'Comms Center',
-        body: `${msgHtml(msg)}<h3>Deep Space Link</h3>${sig}<h3>Today's alert</h3>${eventCard(ev)}`,
+        body: `${msgHtml(msg)}<h3>Deep Space Link</h3>${sig}${night}<h3>Today's alert</h3>${eventCard(ev)}`,
         buttons,
       };
     },
@@ -1387,6 +1488,32 @@ function finalizeRun() {
   return S.final;
 }
 
+/* "Deflected 2 Coronal Mass Ejections", "Patched 1 hull breach"…, each with how real NASA engineers handle that problem.
+   Storms come first, then surprises, then calm Sols; within each group, in the order they happened. */
+function missionLog() {
+  const groups = new Map();
+  S.log.forEach((e) => {
+    if (!groups.has(e.id)) groups.set(e.id, { good: 0, fixed: 0, bad: 0, first: groups.size });
+    groups.get(e.id)[e.outcome]++;
+  });
+  if (!groups.size) return '';
+  const rank = (id) => (id === 'calm' ? 2 : SURPRISES[id] ? 1 : 0);
+  const items = [...groups].sort((a, b) => rank(a[0]) - rank(b[0]) || a[1].first - b[1].first).map(([id, c]) => {
+    const d = ENDURED[id], noun = (n) => (n === 1 ? d.one : d.many);
+    const kinds = ['good', 'fixed', 'bad'].filter((k) => c[k]);
+    let head;
+    if (kinds.length === 1) {
+      const k = kinds[0];
+      head = `${d.verb[k]} <b>${c[k]}</b> ${noun(c[k])}${k === 'good' && d.tail ? d.tail : ''}`;
+    } else {
+      const total = kinds.reduce((t, k) => t + c[k], 0);
+      head = `${d.faced || 'Faced'} <b>${total}</b> ${noun(total)} (${kinds.map((k) => `${c[k]} ${(d.tag && d.tag[k]) || TAG_DEFAULT[k]}`).join(', ')})`;
+    }
+    return `<li><span class="lh">${d.icon} ${head}</span>${d.nasa ? `<small>:rocket: <b>Real NASA fix:</b> ${d.nasa}</small>` : ''}</li>`;
+  });
+  return `<div class="card log"><b>:book-open: What your base lived through</b><ul>${items.join('')}</ul></div>`;
+}
+
 function showEndModal() {
   const won = S.result === 'won';
   SFX.play(won ? 'win' : 'lose');
@@ -1402,10 +1529,12 @@ function showEndModal() {
     icon: won ? ':trophy:' : ':heart-break:',
     title: won ? 'Mission Complete!' : 'Mission Failed',
     body: won
-      ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! You handled space weather, long Earth delays and tough trade-offs like a real NASA crew.</p>
+      ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! Here is what you handled, and how real NASA engineers tackle the same problems.</p>
+         ${missionLog()}
          <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>:star: Research collected: <b>${S.research}</b></div>
          ${scoreCard}${badgeCard}${CREDIT}`
       : `<p>${S.lossReason} You made it to Sol ${S.sol}. :star: Research: ${S.research}.</p>
+         ${missionLog()}
          <div class="card science"><b>:graduation-cap: What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
          ${scoreCard}${badgeCard}
          <p class="hint">Real astronauts and mission planners also learn from things that go wrong. Every run is different, so try again!</p>${CREDIT}`,
@@ -1533,6 +1662,7 @@ class MarsScene extends Phaser.Scene {
     this.wasd = kb.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
     this.space = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.esc = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.nightKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.N);
 
     /* ---- prompt + objective arrow ---- */
     this.prompt = this.add.text(0, 0, '', {
@@ -1796,6 +1926,7 @@ class MarsScene extends Phaser.Scene {
     const spaceHeld = this.space.isDown || TOUCH.held;
     TOUCH.pressed = TOUCH.released = false;
     const escDown = KB.JustDown(this.esc);
+    if (KB.JustDown(this.nightKey) && (!UI.modalOpen || UI.modalKind === 'comms')) endDayEarly();   // N = Start Night Cycle
 
     // movement (dust slows you down)
     const p = this.player;
@@ -1931,6 +2062,8 @@ $('mute').addEventListener('click', (e) => { e.currentTarget.blur(); SFX.toggle(
 window.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
 window.addEventListener('keydown', () => SFX.unlock(), { once: true });
 $('skipTut').addEventListener('click', (e) => { e.currentTarget.blur(); skipTutorial(); });
+$('nightBtn').innerHTML = ic(':moon: Start Night Cycle') + (IS_TOUCH ? '' : ' <kbd>N</kbd>');
+$('nightBtn').addEventListener('click', (e) => { e.currentTarget.blur(); endDayEarly(); });
 
 if (typeof Phaser === 'undefined') {
   fatal('Phaser could not be loaded from the internet.');

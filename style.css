@@ -146,6 +146,15 @@ table.sum td:last-child { text-align: right; font-weight: 700; }
   background: var(--purple); color: var(--white); border: 5px solid var(--ink); border-radius: 22px; padding: 2px 18px 7px;
   box-shadow: 0 5px 0 var(--ink); text-shadow: var(--o2); letter-spacing: .03em; }
 #skipTut:hover { transform: translateY(-2px) rotate(-1deg); }
+/* "Start Night Cycle": shows up once today's jobs are done, so nobody has to stand around waiting for the clock */
+#nightBtn { display: block; margin-top: 12px; pointer-events: auto; font: inherit; font-weight: 700; font-size: 22px; cursor: pointer;
+  background: #3b4bb8; color: var(--white); border: 5px solid var(--ink); border-radius: 22px; padding: 2px 18px 7px;
+  box-shadow: 0 5px 0 var(--ink); text-shadow: var(--o2); letter-spacing: .03em; animation: pop .25s; }
+#nightBtn:hover { transform: translateY(-2px) rotate(-1deg); }
+#nightBtn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+#nightBtn .ic { width: 1.1em; height: 1.1em; vertical-align: -.2em; }
+#nightBtn kbd { background: var(--white); color: var(--ink); text-shadow: none; border: 3px solid var(--ink); border-radius: 9px;
+  padding: 0 7px; margin-left: 4px; font: inherit; font-size: 17px; box-shadow: 0 2px 0 var(--ink); }
 #modal details.more { margin: 12px 0; }
 #modal details.more summary { cursor: pointer; font-weight: 700; color: var(--purple); padding: 6px 4px; }
 #modal .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0; }
@@ -232,3 +241,10 @@ body.touch { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 /* ---------- small creator credit on the title and end screens ---------- */
 #modal .credit { margin: -4px 0 6px; font-size: 13px; font-weight: 600; letter-spacing: .03em; color: var(--purple); opacity: .85; }
 #modal .credit:last-child, #modal p.credit:not(:first-child) { margin: 10px 0 0; text-align: center; }
+
+/* ---------- end-of-mission log: what the base lived through, plus the real NASA fix ---------- */
+#modal .card.log ul { list-style: none; padding-left: 0; }
+#modal .card.log li { margin: 10px 0; padding-bottom: 8px; border-bottom: 3px dashed rgba(43, 20, 88, .18); }
+#modal .card.log li:last-child { border-bottom: 0; padding-bottom: 0; }
+#modal .card.log .lh { display: block; font-size: 20px; font-weight: 700; }
+#modal .card.log small { display: block; margin-top: 3px; font-size: 15px; line-height: 1.35; opacity: .85; }
