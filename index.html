@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="description" content="A kid-friendly Mars base survival game that uses real NASA space-weather data (DONKI).">
   <title>Mars Outpost Survival</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,6 +29,12 @@
     </div>
     <div id="objective"></div>
     <div id="status"></div>
+  </div>
+
+  <button id="mute" type="button"></button>
+  <div id="touch" hidden>
+    <div id="stick"><div id="knob"></div></div>
+    <button id="act" type="button">SPACE</button>
   </div>
 
   <button id="skipTut" hidden>:fast-forward: Skip training</button>

@@ -64,7 +64,7 @@
         "power": 25
       },
       "hitText": "The flare's energy overloaded the power lines.",
-      "lesson": "Light from a flare travels fast: about 8 minutes to Earth, and 12 or more to Mars. That leaves very little warning, which is why astronauts need protection ready in advance."
+      "lesson": "Light from a flare moves at the speed of light, so there is no warning at all: the flash arrives with no time to react (about 8 minutes after leaving the Sun for Earth, and 12 to 14 minutes for Mars). That is why astronauts keep their protection ready in advance."
     },
     {
       "id": "gst",
@@ -81,7 +81,7 @@
         ],
         [
           "Kp index",
-          "A 0 to 9 score for how strong a geomagnetic storm is. 5 or more is a storm."
+          "A 0 to 9 score, measured at Earth, for how strong a geomagnetic storm is. 5 or more counts as a storm."
         ]
       ],
       "advice": "Raise the North Shields before the storm hits, or patch the grow lights and ask Earth for help.",
@@ -134,7 +134,7 @@
       "title": "Giant Dust Storm!",
       "source": "NASA Mars exploration (inspired by Mars rover weather)",
       "category": "Mars Dust Storm",
-      "story": "A huge cloud of red dust is blowing across Mars. When it arrives, it will jam the South Airlock and scratch the solar panels. Dust shields can't stop it, but folding the panels away can.",
+      "story": "A huge cloud of red dust is blowing across Mars. When it arrives, it will jam the South Airlock and scratch the solar panels. The shields can't stop dust, but folding the panels away can.",
       "words": [
         [
           "Regolith",

@@ -5,6 +5,12 @@
    Mars Outpost Survival  (Phaser 3 + vanilla JS)
    ===================================================================== */
 
+/* ===== YOUR NASA API KEY =====
+   The shared 'DEMO_KEY' only allows a few requests per hour for everyone on the same network (a classroom or a
+   hackathon venue can use it up in minutes). Get your own free key in one minute at https://api.nasa.gov and paste
+   it here. You can also add ?key=YOUR_KEY to the address. */
+const NASA_API_KEY = 'DEMO_KEY';
+
 const SOL_GOAL = 10;          // finish Sol 10 to win
 const CRISIS_SECONDS = 90;
 const SIGNAL_SECONDS = 25;    // "25-minute" Earth round trip, shrunk to 25 seconds
@@ -71,6 +77,7 @@ const SURPRISES = {
   science: { icon: ':star:', kind: 'bonus', short: 'Rock find',
     lesson: 'NASA\'s Perseverance rover collects rock samples in sealed tubes so scientists can study them. Finding a good rock is only the start: the sample has to be collected carefully and its data sent home.' },
 };
+const KEY_SOUND = 'marsOutpost.sound.v1';
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
 /* The training: under a minute, learn by doing. Each step points at a pad with the pink arrow. */
@@ -88,7 +95,7 @@ const TUT_STEPS = [
   { target: 'terminal_lifesupport', hold: true, text: ':wind: Life Support is broken! Run west and HOLD SPACE for 2 seconds',
     icon: ':wrench:', title: 'You patched it!',
     body: `<p>When a storm breaks something, supplies <b>leak out</b>. Holding SPACE on the red pad <b>slows the leak</b>.</p>
-           <p>Then ask Earth for a reset code at :broadcast: Comms. Real messages take about <b>25 minutes</b> each way, so in this game it takes <b>25 seconds</b>. Hold on until it arrives!</p>` },
+           <p>Then ask Earth for a reset code at :broadcast: Comms. A real message to Earth and back can take <b>6 to 44 minutes</b>, depending on where the planets are. In this game it takes <b>25 seconds</b>. Hold on until it arrives!</p>` },
 ];
 
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
@@ -130,7 +137,7 @@ const ACTIONS = {
   ],
   terminal_lifesupport: [
     { id: 'o2', type: 'once', name: 'Run Oxygen Generator',
-      blurb: 'A Sabatier reactor and water splitter make breathable air. (The real space station uses a Sabatier reactor too.)',
+      blurb: "Splitting water makes breathable oxygen, just like on the real space station. (NASA's MOXIE experiment on the Perseverance rover even made real oxygen out of Mars air!)",
       cost: { power: 15 }, gain: { oxygen: 30 }, done: 'Fresh oxygen is flowing!' },
   ],
   terminal_airlock: [
@@ -154,6 +161,34 @@ const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z_]/g, ''); /
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const shortDate = (iso) => String(iso || '').slice(0, 10);
+/* Touch screens (tablets, phones, touch Chromebooks): an on-screen joystick and a big SPACE button. */
+const IS_TOUCH = (() => { try { return matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window; } catch (e) { return false; } })();
+const TOUCH = { x: 0, y: 0, held: false, pressed: false, released: false };
+function setupTouch() {
+  if (!IS_TOUCH) return;
+  document.body.classList.add('touch');
+  $('touch').hidden = false;
+  const stick = $('stick'), knob = $('knob'), act = $('act');
+  let sid = null;
+  const move = (e) => {
+    const r = stick.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const d = Math.hypot(dx, dy), max = R * 0.62;
+    if (d > max) { dx *= max / d; dy *= max / d; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const m = Math.hypot(dx, dy) / max;
+    TOUCH.x = m > 0.25 ? dx / max : 0; TOUCH.y = m > 0.25 ? dy / max : 0;
+  };
+  const end = () => { sid = null; TOUCH.x = TOUCH.y = 0; knob.style.transform = ''; };
+  stick.addEventListener('pointerdown', (e) => { sid = e.pointerId; stick.setPointerCapture(sid); move(e); e.preventDefault(); });
+  stick.addEventListener('pointermove', (e) => { if (e.pointerId === sid) move(e); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => stick.addEventListener(t, end));
+  const down = (e) => { TOUCH.held = true; TOUCH.pressed = true; act.classList.add('on'); SFX.unlock(); e.preventDefault(); };
+  const up = () => { if (TOUCH.held) TOUCH.released = true; TOUCH.held = false; act.classList.remove('on'); };
+  act.addEventListener('pointerdown', down);
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => act.addEventListener(t, up));
+}
+
 const store = {   // saved on this device only; always safe if storage is blocked
   get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked: that's fine */ } },
@@ -185,7 +220,7 @@ const DONKI_CACHE_KEY = 'marsOutpost.donki.v1';
 const DONKI_TTL_MS = 6 * 3600 * 1000;
 
 function donkiKey() {
-  try { return new URLSearchParams(location.search).get('key') || 'DEMO_KEY'; } catch (e) { return 'DEMO_KEY'; }
+  try { return new URLSearchParams(location.search).get('key') || NASA_API_KEY; } catch (e) { return NASA_API_KEY; }
 }
 const isoDay = (d) => d.toISOString().slice(0, 10);
 
@@ -194,7 +229,7 @@ async function fetchDonki(kind, start, end) {
   const timer = setTimeout(() => ctl.abort(), 7000);
   try {
     const r = await fetch(`https://api.nasa.gov/DONKI/${kind}?startDate=${start}&endDate=${end}&api_key=${donkiKey()}`, { signal: ctl.signal });
-    if (!r.ok) throw new Error(`${kind} ${r.status}`);
+    if (!r.ok) { const err = new Error(`${kind} ${r.status}`); err.status = r.status; throw err; }
     const j = await r.json();
     return Array.isArray(j) ? j : [];
   } finally { clearTimeout(timer); }
@@ -232,6 +267,8 @@ async function loadDonki() {
   const end = new Date(), start = new Date(Date.now() - 30 * 86400000);
   const kinds = ['CME', 'GST', 'FLR', 'SEP'];
   const results = await Promise.allSettled(kinds.map((k) => fetchDonki(k, isoDay(start), isoDay(end))));
+  const busy = results.some((r) => r.status === 'rejected' && r.reason && r.reason.status === 429);
+  const why = busy ? (donkiKey() === 'DEMO_KEY' ? "NASA's shared demo key is busy right now" : 'NASA says this key has used up its requests for now') : 'could not reach NASA right now';
   const data = { fetchedAt: Date.now(), counts: {} };
   let ok = 0;
   results.forEach((r, i) => {
@@ -246,10 +283,10 @@ async function loadDonki() {
     try { localStorage.setItem(DONKI_CACHE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
     apply(data, 'live', `LIVE from NASA DONKI (fetched ${fmtAt(data.fetchedAt)})`);
   } else if (cached) {
-    apply(cached, 'cached', `SAVED COPY of NASA DONKI data from ${fmtAt(cached.fetchedAt)} (could not reach NASA now)`);
+    apply(cached, 'cached', `SAVED COPY of NASA DONKI data from ${fmtAt(cached.fetchedAt)} (${why})`);
   } else {
     const s = DATA && DATA.sampleDonki;
-    apply(s || {}, 'sample', s ? s.label + ' (could not reach NASA right now)' : 'No NASA data available');
+    apply(s || {}, 'sample', s ? s.label + ` (${why})` : 'No NASA data available');
   }
 }
 
@@ -334,7 +371,7 @@ const S = {
   plan: null,             // the surprise planned for this Sol (not shown in the briefing!)
   surprise: null,         // the surprise that is happening now
   carrying: null,         // something heavy being carried for a surprise
-  solarMul: 1,            // 0.5 while the solar panels are dusty after a dust devil
+  solarMul: 1,            // lower while the solar panels are dusty after a dust devil
   final: null,            // score, best score and new badges, worked out once when the mission ends
 };
 S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 'normal';
@@ -342,6 +379,50 @@ S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 
 // training state (only used while S.phase === 'tutorial')
 const T = { active: false, step: 0, started: false, elapsed: 0, hold: 0 };
 const tutorialSeen = () => !!store.get(KEY_TUT, false);
+
+/* Sound effects, made on the fly with the browser's synthesizer (no sound files to download). */
+const SFX = (() => {
+  let ctx = null, on = store.get(KEY_SOUND, true) !== false;
+  const ensure = () => {
+    try {
+      if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctx = new AC(); }
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch (e) { return null; }
+  };
+  const tone = (c, f, t0, dur, type, vol, f2) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f, t0);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, t0 + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  };
+  const SONGS = {
+    good:    [[660, 0, 0.09, 'triangle'], [990, 0.08, 0.16, 'triangle']],
+    bad:     [[330, 0, 0.22, 'square', 0.06, 220]],
+    alarm:   [[880, 0, 0.12, 'square', 0.06], [660, 0.15, 0.12, 'square', 0.06], [880, 0.3, 0.12, 'square', 0.06], [660, 0.45, 0.16, 'square', 0.06]],
+    fanfare: [[523, 0, 0.1, 'triangle'], [659, 0.09, 0.1, 'triangle'], [784, 0.18, 0.1, 'triangle'], [1046, 0.27, 0.22, 'triangle']],
+    boom:    [[110, 0, 0.5, 'sawtooth', 0.12, 40]],
+    win:     [[523, 0, 0.14, 'triangle'], [659, 0.14, 0.14, 'triangle'], [784, 0.28, 0.14, 'triangle'], [1046, 0.42, 0.4, 'triangle', 0.14]],
+    lose:    [[392, 0, 0.25, 'triangle'], [330, 0.25, 0.25, 'triangle'], [262, 0.5, 0.5, 'triangle']],
+  };
+  return {
+    play(name) {
+      if (!on || !SONGS[name]) return;
+      const c = ensure(); if (!c) return;
+      const t = c.currentTime + 0.01;
+      SONGS[name].forEach(([f, dt, dur, type, vol, f2]) => tone(c, f, t + dt, dur, type, vol, f2));
+    },
+    unlock() { if (on) ensure(); },
+    toggle() { on = !on; store.set(KEY_SOUND, on); if (on) ensure(); return on; },
+    get on() { return on; },
+  };
+})();
+function renderMute() { const b = $('mute'); b.innerHTML = ic(SFX.on ? ':speaker-high:' : ':speaker-slash:'); b.title = SFX.on ? 'Sound on (click to mute)' : 'Sound off (click to turn on)'; b.setAttribute('aria-label', b.title); }
 
 const UI = { modalOpen: false, modalKind: null, modalRender: null, closable: true, lastSig: -1 };
 
@@ -421,7 +502,7 @@ function startTutorial() {
         <li>:sun: Space <b>storms</b> break stuff.</li>
         <li>:coins: <b>Everything costs something.</b></li>
         <li>:broadcast: Earth answers <b>slowly</b>.</li></ul></div>
-      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys and follow the <b style="color:#ff5fa8">pink arrow</b> :arrow-fat-down:.</p>`,
+      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys${IS_TOUCH ? ' (on a touch screen: the joystick, and the big SPACE button)' : ''} and follow the <b style="color:#ff5fa8">pink arrow</b> :arrow-fat-down:.</p>`,
     buttons: [
       { label: "Let's go! :play:", cls: 'good', onClick: closeModal },
       { label: 'Skip training', cls: 'secondary', onClick: skipTutorial },
@@ -600,6 +681,7 @@ function banner(html, kind) {
   const b = $('banner');
   b.innerHTML = ic(html);
   b.className = kind || '';
+  SFX.play(kind === 'bad' ? 'alarm' : 'fanfare');
   b.hidden = false;
   clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => { b.hidden = true; }, 5200);
@@ -694,12 +776,12 @@ function finishSurprise() {
   if (scene && scene.clearDrop) scene.clearDrop();
 }
 
-function missSurprise() {                  // ran out of time on a supply pod / rock find
+function missSurprise(quiet) {             // ran out of time on a supply pod / rock find (quiet = the Sol ended; the summary says it)
   const sp = S.surprise;
   if (!sp || sp.status !== 'active') return;
   sp.status = 'missed';
   S.carrying = null;
-  toast(`${SURPRISES[sp.id].icon} Too late: the wind buried the ${SURPRISES[sp.id].short.toLowerCase()}.`, 'bad');
+  if (!quiet) toast(`${SURPRISES[sp.id].icon} Too late: the wind buried the ${SURPRISES[sp.id].short.toLowerCase()}.`, 'bad');
   if (scene && scene.clearDrop) scene.clearDrop();
 }
 
@@ -731,7 +813,9 @@ function endSol() {
   Object.keys(S.res).forEach((k) => { S.res[k] = Math.ceil(S.res[k] - 1e-9); });
   const ev = S.event;
   const sp = S.surprise;
-  if (sp && sp.status === 'active' && (sp.id === 'supply' || sp.id === 'science')) missSurprise();
+  if (sp && sp.status === 'active' && (sp.id === 'supply' || sp.id === 'science')) missSurprise(true);
+  clearTimeout(bannerTimer); $('banner').hidden = true;      // nothing from the day should cover the summary
+  clearTimeout(toastTimer); $('toast').hidden = true;
   S.carrying = null;
   if (scene && scene.clearDevil) scene.clearDevil();
   const lines = [];
@@ -944,6 +1028,7 @@ let toastTimer = null;
 function toast(msg, kind) {
   const t = $('toast');
   t.innerHTML = ic(msg);
+  if (kind === 'good') SFX.play('good'); else if (kind === 'bad') SFX.play('bad');
   t.className = kind || '';
   t.hidden = false;
   clearTimeout(toastTimer);
@@ -954,6 +1039,7 @@ function toast(msg, kind) {
    Modal system
    --------------------------------------------------------------------- */
 function showModal(cfg) {
+  clearTimeout(toastTimer); $('toast').hidden = true;   // a window has its own messages; a leftover toast would cover it
   UI.modalOpen = true;
   UI.modalKind = cfg.kind || null;
   UI.closable = cfg.closable !== false;
@@ -1060,6 +1146,7 @@ function openComms(msg) {
           body: `${missionCard()}${eventCard(ev)}<div class="card"><b>:warning: Heads up:</b> surprises can happen at any time with <b>no warning</b>. Keep your eyes open!</div><p class="hint">The clock starts when you press the button!</p>`,
           buttons: [{ label: `:timer: Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
           noClose: true,
+          keyHint: 'Press <kbd>ESC</kbd> or <kbd>SPACE</kbd> to close. The clock stays paused until you press Start.',
         };
       }
       const ft = ev.faultTerminal;
@@ -1076,7 +1163,7 @@ function openComms(msg) {
         sig = `<div class="card">:check-circle: ${TERMINALS[ft].name} is already fixed. Nice work!</div>`;
       } else if (S.signal.status === 'idle') {
         sig = `<div class="card alert"><b>${ev.faultLabel}.</b> You need Earth's reset code.
-          <p class="hint">A message to Earth and back really takes about 25 minutes. Here it takes ${SIGNAL_SECONDS} seconds.
+          <p class="hint">A real message to Earth and back can take 6 to 44 minutes, depending on where the planets are. Here it takes ${SIGNAL_SECONDS} seconds.
           <b>You can't just wait here!</b> The leak keeps draining supplies. Run to ${TERMINALS[ft].name} and HOLD SPACE to patch it while you wait.</p></div>`;
         buttons.push({ label: `:broadcast: Ask Earth for Help (${SIGNAL_SECONDS}s)`, cls: 'good', onClick: () => {
           S.signal = { status: 'waiting', remaining: SIGNAL_SECONDS };
@@ -1230,7 +1317,7 @@ function openArchives() {
             <p class="hint">These come from NASA's DONKI database. The strength of each storm in the game is scaled by a real record like these.</p></div>
           <h3>Events you may meet on Mars</h3><ul>${evs}</ul>
           <h3>Fun fact: Earth–Mars signal delay</h3>
-          <p>Radio waves travel at the speed of light, but Mars is far away. A one-way message takes about 3 to 22 minutes, depending on where the planets are. This game uses ${SIGNAL_SECONDS} seconds for the "25-minute" round trip.</p>
+          <p>Radio waves travel at the speed of light, but Mars is far away. A one-way message takes about 3 to 22 minutes, depending on where the planets are. So a message there and back takes about 6 to 44 minutes. This game shrinks that wait to ${SIGNAL_SECONDS} seconds.</p>
           <h3>Words to know</h3><ul>${gl}</ul>
           <h3>Dataset attributions</h3>${attr}
           <p class="hint">${DATA.disclaimer}</p>`,
@@ -1262,7 +1349,7 @@ function showTitle() {
       return {
         closable: false, icon: ':rocket-launch:', title: 'Mars Outpost Survival',
         body: `<p>You are the only astronaut on Mars! Keep <b>:lightning: Power</b>, <b>:wind: Oxygen</b> and <b>:orange: Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
-          <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!</p>
+          <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!${IS_TOUCH ? ' On a touch screen, use the joystick and the SPACE button.' : ''}</p>
           ${tutorialSeen() ? '' : '<p class="hint">First time? A quick training (under a minute) comes first.</p>'}
           <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
           <p class="hint">Every mission has a different storm order, a random landing site, and real NASA data.</p>
@@ -1301,6 +1388,7 @@ function finalizeRun() {
 
 function showEndModal() {
   const won = S.result === 'won';
+  SFX.play(won ? 'win' : 'lose');
   const f = finalizeRun(), d = DIFFS[S.diff];
   const scoreCard = `<div class="card score">
       <div class="bigscore">:star: Score: ${f.score}</div>
@@ -1587,7 +1675,7 @@ class MarsScene extends Phaser.Scene {
   }
 
   /* a brief shake when a storm reaches the base */
-  shakeScreen(hard) { if (this.cameras && this.cameras.main) this.cameras.main.shake(hard ? 420 : 220, hard ? 0.006 : 0.002); }
+  shakeScreen(hard) { if (this.cameras && this.cameras.main) this.cameras.main.shake(hard ? 420 : 220, hard ? 0.006 : 0.002); if (hard) SFX.play('boom'); }
 
   makeFallbackAstronaut() {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -1702,8 +1790,10 @@ class MarsScene extends Phaser.Scene {
     if ((UI.modalKind === 'comms' || UI.modalKind === 'wing') && S.signal.status === 'waiting' && Math.ceil(S.signal.remaining) !== UI.lastSig) renderCurrentModal();
 
     const KB = Phaser.Input.Keyboard;
-    const spaceDown = KB.JustDown(this.space);
-    const spaceUp = KB.JustUp(this.space);
+    const spaceDown = KB.JustDown(this.space) || TOUCH.pressed;      // keyboard SPACE or the on-screen button
+    const spaceUp = KB.JustUp(this.space) || TOUCH.released;
+    const spaceHeld = this.space.isDown || TOUCH.held;
+    TOUCH.pressed = TOUCH.released = false;
     const escDown = KB.JustDown(this.esc);
 
     // movement (dust slows you down)
@@ -1718,6 +1808,7 @@ class MarsScene extends Phaser.Scene {
       if (c.right.isDown || w.right.isDown) vx += 1;
       if (c.up.isDown || w.up.isDown) vy -= 1;
       if (c.down.isDown || w.down.isDown) vy += 1;
+      if (TOUCH.x || TOUCH.y) { vx += TOUCH.x; vy += TOUCH.y; }
     }
     const len = Math.hypot(vx, vy) || 1;
     p.setVelocity((vx / len) * speed, (vy / len) * speed);
@@ -1738,8 +1829,8 @@ class MarsScene extends Phaser.Scene {
     const atTerm = !!(st && st.terminal && zone && zone.id === st.terminal && live);
     const atPoint = !!(st && st.point && live && Math.hypot(p.x - st.point.x, p.y + 8 - st.point.y) < 46);
     const needsHold = faultedHere || atTerm;         // tap SPACE opens the pad, holding SPACE does the job
-    if (this.stepLock && !this.space.isDown) this.stepLock = false;
-    if ((atTerm || atPoint) && this.space.isDown && !this.stepLock) {
+    if (this.stepLock && !spaceHeld) this.stepLock = false;
+    if ((atTerm || atPoint) && spaceHeld && !this.stepLock) {
       this.stepT = (this.stepT || 0) + dt;
       if (this.stepT >= st.hold) { completeStep(); this.stepT = 0; this.stepLock = true; }
     } else this.stepT = 0;
@@ -1774,7 +1865,7 @@ class MarsScene extends Phaser.Scene {
     if (S.carrying) this.carryIcon.setTexture('ic_' + S.carrying.icon).setPosition(p.x + 15, p.y - 32 + Math.sin(time / 200) * 2);
 
     const modalAtStart = UI.modalOpen;      // a card opened by this very SPACE press must not be closed by it
-    if (S.phase === 'tutorial') tutorialTick(dt, zone, spaceDown, this.space.isDown);
+    if (S.phase === 'tutorial') tutorialTick(dt, zone, spaceDown, spaceHeld);
 
     if (modalAtStart) {
       this.holding = false; S.patching = false;
@@ -1787,7 +1878,7 @@ class MarsScene extends Phaser.Scene {
         else openTerminal(zone.id);
       }
       if (this.holding) {
-        if (this.space.isDown && needsHold) {
+        if (spaceHeld && needsHold) {
           this.holdT += dt;
           S.patching = faultedHere && this.holdT >= HOLD_SECONDS;
         } else {
@@ -1831,8 +1922,13 @@ class MarsScene extends Phaser.Scene {
    Boot
    --------------------------------------------------------------------- */
 window.addEventListener('error', (e) => { if (!scene) fatal(e.message); });
-if (/[?&]debug/.test(location.search)) window.__mars = { S, T, UI, readBriefing, closeModal, startSol, endSol, tick, get scene() { return scene; } };   // for testing only
+if (/[?&]debug/.test(location.search)) window.__mars = { S, T, UI, readBriefing, closeModal, startSol, endSol, tick, openComms, get scene() { return scene; } };   // for testing only
 document.querySelectorAll('.ico, #skipTut').forEach((el) => { el.innerHTML = ic(el.textContent); });   // static HUD icons
+setupTouch();
+renderMute();
+$('mute').addEventListener('click', (e) => { e.currentTarget.blur(); SFX.toggle(); renderMute(); SFX.play('good'); });
+window.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
+window.addEventListener('keydown', () => SFX.unlock(), { once: true });
 $('skipTut').addEventListener('click', (e) => { e.currentTarget.blur(); skipTutorial(); });
 
 if (typeof Phaser === 'undefined') {
