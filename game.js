@@ -50,21 +50,27 @@ const BADGES = [
   { id: 'finder',    icon: ':sparkle:',   name: 'Treasure Hunter',     text: 'Collect 3 surprise finds in one mission',   test: (s) => s.stats.finds >= 3 },
   { id: 'commander', icon: ':fire:', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
 ];
-/* Surprises: things that happen mid-Sol with NO warning in the briefing, so shields alone never solve a day. */
+/* Surprises: things that happen mid-Sol with NO warning in the briefing, so shields alone never solve a day.
+   Each one is a short chain of steps (grab a tool, do the job, deliver it), so there is always something to plan. */
 const SURPRISE_MIN = 22, SURPRISE_MAX = 62;   // they start somewhere in this window (seconds after the clock starts)
-const PICKUP_SECONDS = 35;                    // time to reach a supply pod or rock find
-const LEAK_RATE = 0.7;                        // a hull breach loses this much per second until patched
-const LEAK_FIX_HOLD = 1.5;                    // hold SPACE this long on the pad to patch it yourself (no Earth call needed)
-const SUPPLY_GAIN = { easy: 30, normal: 25, hard: 20 };
+const BONUS_SECONDS = 80;                     // time limit for the supply pod / rock find chains
+const LEAK_RATE = 0.35;                        // a hull breach loses this much per second at first...
+const LEAK_GROWTH = 0.035;                    // ...and it gets worse: the rate grows by this fraction every second
+const SUPPLY_GAIN = { easy: 34, normal: 28, hard: 22 };
+const CARRY_SLOW = 0.7;                       // a heavy load slows you down
+const DEVIL_SPEED = 100, DEVIL_HIT = 10;      // dust devil speed (pixels/second) and the oxygen it costs if it scratches your suit
 const LEAK_SPOTS = ['terminal_lifesupport', 'terminal_hydroponics', 'terminal_airlock', 'terminal_shields'];
 const LEAK_RES = { terminal_lifesupport: 'oxygen', terminal_hydroponics: 'food', terminal_airlock: 'oxygen', terminal_shields: 'power' };
+const SUPPLY_WING = { power: 'terminal_shields', oxygen: 'terminal_lifesupport', food: 'terminal_hydroponics' };
 const SURPRISES = {
-  leak: { icon: ':meteor:', short: 'Hull breach', title: 'Micro-meteoroid hit!',
-    lesson: 'Tiny space rocks called micrometeoroids hit spacecraft all the time. In 2016 a tiny fleck of space debris chipped a window on the International Space Station. Crews patch small holes themselves, right away, because waiting for help from home takes too long.' },
-  supply: { icon: ':sparkle:', short: 'Supply pod', banner: 'A supply pod just landed! Grab it before the wind buries it!', objective: 'Run to the glowing supply pod!',
-    lesson: 'Real cargo ships like SpaceX Dragon and Cygnus deliver food and gear to the International Space Station. A Mars base would need regular deliveries too.' },
-  science: { icon: ':star:', short: 'Rock find', banner: 'The rover spotted a strange glowing rock! Go look before it gets covered!', objective: 'Run to the glowing rock!',
-    lesson: 'NASA\'s Perseverance rover collects rock samples in sealed tubes so scientists can study them. Finding a good rock is a big deal!' },
+  leak: { icon: ':meteor:', kind: 'disaster', short: 'Hull breach',
+    lesson: 'Tiny space rocks called micrometeoroids hit spacecraft all the time. In 2016 a tiny fleck of space debris chipped a window on the International Space Station. Crews keep patch kits ready and fix small holes themselves, right away, because waiting for help from home takes too long.' },
+  devil: { icon: ':tornado:', kind: 'disaster', short: 'Dust devil',
+    lesson: 'Dust devils are real on Mars. NASA\'s Mars rovers have photographed them, and sometimes the wind even cleaned dust off the rovers\' solar panels, which helped them keep working. A base would have to sweep its panels itself.' },
+  supply: { icon: ':sparkle:', kind: 'bonus', short: 'Supply pod',
+    lesson: 'Real cargo ships like SpaceX Dragon and Cygnus deliver food and gear to the International Space Station. A Mars base would need regular deliveries too, and crews have to unpack and carry them to the right place.' },
+  science: { icon: ':star:', kind: 'bonus', short: 'Rock find',
+    lesson: 'NASA\'s Perseverance rover collects rock samples in sealed tubes so scientists can study them. Finding a good rock is only the start: the sample has to be collected carefully and its data sent home.' },
 };
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
@@ -89,7 +95,7 @@ const TUT_STEPS = [
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
 const TILES_PATH = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.png';
 const ATLAS_XML = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.xml';
-const WORLD_ICONS = ['broadcast', 'books', 'shield-check', 'plant', 'wind', 'door', 'warning', 'arrow-fat-down', 'house', 'star', 'sparkle'];
+const WORLD_ICONS = ['broadcast', 'books', 'shield-check', 'plant', 'wind', 'door', 'warning', 'arrow-fat-down', 'house', 'star', 'sparkle', 'tornado'];
 const iconOf = (token) => String(token).replace(/:/g, '');   // ':broadcast:' -> 'broadcast'
 
 const FONT = 'Fredoka, "Arial Rounded MT Bold", "Comic Sans MS", sans-serif';
@@ -328,6 +334,8 @@ const S = {
   stats: { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 },
   plan: null,             // the surprise planned for this Sol (not shown in the briefing!)
   surprise: null,         // the surprise that is happening now
+  carrying: null,         // something heavy being carried for a surprise
+  solarMul: 1,            // 0.5 while the solar panels are dusty after a dust devil
   final: null,            // score, best score and new badges, worked out once when the mission ends
 };
 S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 'normal';
@@ -401,8 +409,9 @@ function startTutorial() {
   S.res = { power: 100, oxygen: 100, food: 100 };
   S.faults = {}; S.scrubbers = true; S.patching = false; S.signal = { status: 'idle', remaining: 0 };
   S.event = null; S.sol = 1; S.timeLeft = CRISIS_SECONDS; S.research = 0;
-  S.surprise = null; S.plan = null;
+  S.surprise = null; S.plan = null; S.carrying = null; S.solarMul = 1;
   if (scene && scene.clearDrop) scene.clearDrop();
+  if (scene && scene.clearDevil) scene.clearDevil();
   S.twist = TWISTS[0];
   if (scene) scene.teleportToSpawn();
   showModal({
@@ -503,6 +512,9 @@ function startSol(n) {
   S.startRes = { ...S.res };
   if (scene && scene.clearDrop) scene.clearDrop();
   S.surprise = null;
+  S.carrying = null;
+  S.solarMul = 1;
+  if (scene && scene.clearDevil) scene.clearDevil();
   S.plan = rollSurprise(S.event);
   if (scene) scene.teleportToSpawn();
   closeModal();
@@ -567,17 +579,18 @@ function stormArrives() {
 }
 
 /* ---------------------------------------------------------------------
-   Surprises
+   Surprises: short chains of steps
    --------------------------------------------------------------------- */
 function rollSurprise(ev) {
-  try {                                           // ?surprise=leak|supply|science forces one early (handy for demos)
+  try {                                           // ?surprise=leak|devil|supply|science forces one early (handy for demos)
     const forced = new URLSearchParams(location.search).get('surprise');
     if (SURPRISES[forced]) return { id: forced, at: 4 };
   } catch (e) { /* no URL */ }
   const calm = !ev.faultTerminal;                 // calm Sols always get one, so quiet days are never boring
-  const chance = calm ? 1 : clamp(0.4 + 0.03 * (S.sol - 1) + (S.diff === 'hard' ? 0.15 : S.diff === 'easy' ? -0.1 : 0), 0, 0.9);
+  const chance = calm ? 1 : clamp(0.4 + 0.03 * (S.sol - 1) + (S.diff === 'hard' ? 0.1 : S.diff === 'easy' ? -0.1 : 0), 0, 0.9);
   if (Math.random() > chance) return null;
-  const w = calm ? [['supply', 0.35], ['science', 0.35], ['leak', 0.3]] : [['leak', 0.5], ['supply', 0.3], ['science', 0.2]];
+  // storm days lean towards disasters, calm days towards opportunities
+  const w = calm ? [['supply', 0.3], ['science', 0.3], ['leak', 0.2], ['devil', 0.2]] : [['leak', 0.4], ['devil', 0.3], ['supply', 0.15], ['science', 0.15]];
   let r = Math.random(), id = w[w.length - 1][0];
   for (const [k, pr] of w) { if (r < pr) { id = k; break; } r -= pr; }
   return { id, at: randInt(SURPRISE_MIN, SURPRISE_MAX) };
@@ -590,70 +603,127 @@ function banner(html, kind) {
   b.className = kind || '';
   b.hidden = false;
   clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => { b.hidden = true; }, 4500);
+  bannerTimer = setTimeout(() => { b.hidden = true; }, 5200);
+}
+
+/* The steps of each surprise. A step is done by standing on its pad (or spot) and HOLDING SPACE. */
+function buildSteps(kind, sp) {
+  const airlock = TERMINALS.terminal_airlock.name;
+  if (kind === 'leak') return [
+    { id: 'kit', terminal: 'terminal_airlock', hold: 1, verb: 'grab the patch kit', text: `Grab a patch kit at ${airlock}`, cost: { oxygen: 2 } },
+    { id: 'patch', terminal: sp.terminal, hold: 1.6, verb: 'patch the hole', text: `Patch the hole at ${TERMINALS[sp.terminal].name}` },
+  ];
+  if (kind === 'devil') return [
+    { id: 'dodge', auto: true, text: 'Dodge the dust devil! Do not let it touch you',
+      onDone: () => { S.solarMul = 0.35; addRes('power', -8); toast(':sun: Dust got into the panels and batteries: −8 Power, and weak sunlight until you sweep them!', 'bad'); } },
+    { id: 'sweep', terminal: 'terminal_airlock', hold: 2, verb: 'sweep the panels', text: `The panels are dusty! Sweep them clean at ${airlock}`, cost: { oxygen: 3 } },
+  ];
+  if (kind === 'supply') return [
+    { id: 'cart', terminal: 'terminal_airlock', hold: 1, verb: 'grab a cargo cart', text: `Grab a cargo cart at ${airlock}`, cost: { oxygen: 2 } },
+    { id: 'open', point: sp.point, hold: 2, verb: 'pry the pod open', text: 'Run to the pod and pry it open',
+      onDone: () => { S.carrying = { icon: 'sparkle', slow: CARRY_SLOW, label: 'supplies' }; } },
+    { id: 'deliver', terminal: sp.wing, hold: 1, verb: 'unload the supplies', text: `Carry the supplies to ${TERMINALS[sp.wing].name} (the load slows you down)` },
+  ];
+  return [
+    { id: 'kit', terminal: 'terminal_airlock', hold: 1, verb: 'grab the sample kit', text: `Grab a sample kit at ${airlock}` },
+    { id: 'dig', point: sp.point, hold: 2, verb: 'collect the rock', text: 'Run to the glowing rock and collect a sample',
+      onDone: () => { S.carrying = { icon: 'star', slow: 1, label: 'rock sample' }; } },
+    { id: 'send', terminal: 'terminal_comms', hold: 1.5, verb: 'send it to Earth', text: 'Take the sample to Comms and send it to Earth' },
+  ];
 }
 
 function spawnSurprise() {
-  const kind = S.plan.id, d = SURPRISES[kind];
-  const sp = S.surprise = { id: kind, status: 'active', lost: 0, remaining: PICKUP_SECONDS };
+  const kind = S.plan.id;
+  const sp = S.surprise = { id: kind, status: 'active', lost: 0, hits: 0, idx: 0, elapsed: 0, remaining: BONUS_SECONDS, steps: [] };
+  const shake = (hard) => { if (scene && scene.shakeScreen) scene.shakeScreen(hard); };
   if (kind === 'leak') {
     sp.terminal = pick(LEAK_SPOTS.filter((t) => t !== S.event.faultTerminal));
     sp.res = LEAK_RES[sp.terminal];
-    banner(`:meteor: SURPRISE! A space rock punched a hole in ${TERMINALS[sp.terminal].name}!`, 'bad');
-    if (scene && scene.shakeScreen) scene.shakeScreen(true);
+    banner(`:meteor: SURPRISE! A space rock punched a hole in ${TERMINALS[sp.terminal].name}! Grab a patch kit at the South Airlock!`, 'bad');
+    shake(true);
+  } else if (kind === 'devil') {
+    banner(':tornado: SURPRISE! A DUST DEVIL is rolling across the base! Dodge it!', 'bad');
+    if (scene && scene.spawnDevil) scene.spawnDevil();
+    shake(true);
   } else {
     sp.point = scene && scene.pickSpot ? scene.pickSpot() : { x: 600, y: 600 };
+    if (kind === 'supply') { sp.low = Object.keys(S.res).sort((a, b) => S.res[a] - S.res[b])[0]; sp.wing = SUPPLY_WING[sp.low]; }
     if (scene && scene.spawnDrop) scene.spawnDrop(sp);
-    banner(`${d.icon} SURPRISE! ${d.banner}`, 'good');
-    if (scene && scene.shakeScreen) scene.shakeScreen(false);
+    banner(kind === 'supply'
+      ? ':sparkle: SURPRISE! A supply pod crashed! Get a cargo cart at the South Airlock, then pry it open!'
+      : ':star: SURPRISE! The rover found a glowing rock! Get a sample kit at the South Airlock first!', 'good');
+    shake(false);
   }
+  sp.steps = buildSteps(kind, sp);
 }
 
-function fixLeak() {                       // the player held SPACE on the breached pad
-  const sp = S.surprise;
-  if (!sp || sp.id !== 'leak' || sp.status !== 'active') return;
-  sp.status = 'fixed';
-  S.stats.patched++;
-  toast(':wrench: Patched! The hole is sealed.', 'good');
+const currentStep = () => { const sp = S.surprise; return sp && sp.status === 'active' ? sp.steps[sp.idx] || null : null; };
+
+function completeStep() {
+  const sp = S.surprise, st = currentStep();
+  if (!st) return;
+  if (st.cost) Object.entries(st.cost).forEach(([k, v]) => addRes(k, -Math.min(v, Math.max(0, S.res[k] - 1))));   // suiting up costs air, but never takes you to zero
+  if (st.onDone) st.onDone(sp);
+  sp.idx++;
+  if (sp.idx >= sp.steps.length) finishSurprise();
+  else toast(`:check-circle: Step ${sp.idx} of ${sp.steps.length} done!`, 'good');
 }
 
-function collectSurprise() {               // the player reached the supply pod / rock
+function finishSurprise() {
   const sp = S.surprise;
-  if (!sp || sp.id === 'leak' || sp.status !== 'active') return;
-  sp.status = 'collected';
-  S.stats.finds++;
-  if (sp.id === 'supply') {
-    const k = Object.keys(S.res).sort((a, b) => S.res[a] - S.res[b])[0];   // it helps whatever you are lowest on
-    const got = Math.round(addRes(k, SUPPLY_GAIN[S.diff]));                // what actually fit (a bar cannot go past 100)
-    sp.gain = got >= 5 ? `The supply pod gave +${got} ${RES[k].label}, because you were lowest on it.`
-      : 'Your supplies were already full, so the pod was not needed. Grab it when you are running low!';
-    toast(got >= 5 ? `:sparkle: Supply pod! +${got} ${RES[k].label}` : ':sparkle: Supply pod! (supplies already full)', 'good');
+  sp.status = 'done';
+  S.carrying = null;
+  if (sp.id === 'leak') {
+    S.stats.patched++;
+    toast(':wrench: Patched! The hole is sealed.', 'good');
+  } else if (sp.id === 'devil') {
+    S.solarMul = 1;
+    toast(':sun: Panels are clean again: full Power!', 'good');
+  } else if (sp.id === 'supply') {
+    const got = Math.round(addRes(sp.low, SUPPLY_GAIN[S.diff]));            // what actually fit (a bar cannot go past 100)
+    sp.gain = got >= 5 ? `You carried the supplies to ${TERMINALS[sp.wing].name}: +${got} ${RES[sp.low].label}, because that was what you were lowest on.`
+      : 'You delivered the supplies, but your stores were already full. Next time, grab it when you are running low!';
+    S.stats.finds++;
+    toast(got >= 5 ? `:sparkle: Delivered! +${got} ${RES[sp.low].label}` : ':sparkle: Delivered! (supplies already full)', 'good');
   } else {
-    S.research += 2;
-    sp.gain = 'The rover brought back a great rock: +2 Research stars.';
-    toast(':star: Great find! +2 Research', 'good');
+    S.research += 3;
+    const got = Math.round(addRes('power', 10));
+    sp.gain = `Earth loved your rock data: +3 Research stars${got ? ` and +${got} Power as a thank-you` : ''}.`;
+    S.stats.finds++;
+    toast(':star: Sample sent! +3 Research', 'good');
   }
   if (scene && scene.clearDrop) scene.clearDrop();
 }
 
-function missSurprise() {
+function missSurprise() {                  // ran out of time on a supply pod / rock find
   const sp = S.surprise;
   if (!sp || sp.status !== 'active') return;
   sp.status = 'missed';
-  toast(`${SURPRISES[sp.id].icon} Too late: the ${SURPRISES[sp.id].short.toLowerCase()} got buried by the wind.`, 'bad');
+  S.carrying = null;
+  toast(`${SURPRISES[sp.id].icon} Too late: the wind buried the ${SURPRISES[sp.id].short.toLowerCase()}.`, 'bad');
   if (scene && scene.clearDrop) scene.clearDrop();
+}
+
+function devilDone() {                     // the dust devil left the map
+  const st = currentStep();
+  if (st && st.id === 'dodge') completeStep();
 }
 
 function surpriseLines(sp) {
   const d = SURPRISES[sp.id];
   if (sp.id === 'leak') {
     const nm = TERMINALS[sp.terminal].name, lost = Math.round(sp.lost);
-    return [sp.status === 'fixed'
-      ? { ok: true, text: `:meteor: Surprise! You patched the hull breach at ${nm} yourself. It leaked ${lost} ${RES[sp.res].label} first.` }
-      : { ok: false, text: `:meteor: Surprise! The hull breach at ${nm} leaked ${lost} ${RES[sp.res].label} until morning. Next time, hold SPACE on the red pad.` }];
+    return [sp.status === 'done'
+      ? { ok: true, text: `:meteor: Surprise! You fetched a patch kit and sealed the hull breach at ${nm}. It leaked ${lost} ${RES[sp.res].label} first.` }
+      : { ok: false, text: `:meteor: Surprise! The hull breach at ${nm} leaked ${lost} ${RES[sp.res].label} all day. Next time: patch kit from the Airlock, then hold SPACE at the hole.` }];
   }
-  if (sp.status === 'collected') return [{ ok: true, text: `${d.icon} Surprise! ${sp.gain}` }];
-  return [{ ok: false, text: `${d.icon} Surprise! You missed the ${d.short.toLowerCase()}: the wind buried it.` }];
+  if (sp.id === 'devil') {
+    const out = [sp.hits ? { ok: false, text: `:tornado: Surprise! The dust devil scratched your suit ${sp.hits} time${sp.hits > 1 ? 's' : ''}: −${sp.hits * DEVIL_HIT} Oxygen.` } : { ok: true, text: ':tornado: Surprise! You dodged the dust devil without a scratch.' }];
+    out.push(sp.status === 'done' ? { ok: true, text: ':sun: You swept the dust off the solar panels.' } : { ok: false, text: ':sun: The panels stayed dusty, so solar Power was cut by two thirds.' });
+    return out;
+  }
+  if (sp.status === 'done') return [{ ok: true, text: `${d.icon} Surprise! ${sp.gain}` }];
+  return [{ ok: false, text: `${d.icon} Surprise! You did not finish in time: the wind buried the ${d.short.toLowerCase()}.` }];
 }
 
 function endSol() {
@@ -662,7 +732,9 @@ function endSol() {
   Object.keys(S.res).forEach((k) => { S.res[k] = Math.ceil(S.res[k] - 1e-9); });
   const ev = S.event;
   const sp = S.surprise;
-  if (sp && sp.status === 'active' && sp.id !== 'leak') missSurprise();
+  if (sp && sp.status === 'active' && (sp.id === 'supply' || sp.id === 'science')) missSurprise();
+  S.carrying = null;
+  if (scene && scene.clearDevil) scene.clearDevil();
   const lines = [];
   const stat = (k) => Object.entries(S.lost).filter(([, v]) => v >= 0.5).map(([r, v]) => `−${Math.round(v)} ${RES[r].label}`).join(', ');
 
@@ -730,7 +802,7 @@ function tick(dt) {
   if (ev.arriveAt != null && !S.arrived && CRISIS_SECONDS - S.timeLeft >= ev.arriveAt) stormArrives();
 
   // steady power flows
-  if (!S.retracted) S.solar += addRes('power', solarRate() * dt);
+  if (!S.retracted) S.solar += addRes('power', solarRate() * S.solarMul * dt);
   if (scrubbersOn()) { const d = addRes('power', -scrubRate() * dt); S.scrubCost -= d; }
 
   // a broken system leaks resources until it is reset (holding SPACE there slows the leak)
@@ -753,8 +825,9 @@ function tick(dt) {
   if (S.plan && !S.surprise && elapsed >= S.plan.at) spawnSurprise();
   const sp = S.surprise;
   if (sp && sp.status === 'active') {
-    if (sp.id === 'leak') { const d = addRes(sp.res, -LEAK_RATE * DIFFS[S.diff].hit * dt); sp.lost -= d; }
-    else { sp.remaining -= dt; if (sp.remaining <= 0) missSurprise(); }
+    sp.elapsed += dt;
+    if (sp.id === 'leak') { const d = addRes(sp.res, -LEAK_RATE * DIFFS[S.diff].hit * (1 + LEAK_GROWTH * sp.elapsed) * dt); sp.lost -= d; }
+    else if (sp.id === 'supply' || sp.id === 'science') { sp.remaining -= dt; if (sp.remaining <= 0) missSurprise(); }
   }
   S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
   if (checkLose()) return;
@@ -773,12 +846,12 @@ function objective() {
   if (S.phase === 'briefing') return { text: ':broadcast: Go to the Comms Center and read today\'s briefing (clock is paused)', target: 'terminal_comms' };
   if (S.phase !== 'crisis') return { text: '', target: null };
   const ev = S.event, ft = ev.faultTerminal;
-  const sp = S.surprise;
-  if (sp && sp.status === 'active') {            // a surprise is the most urgent thing, unless a storm is about to hit
+  const sp = S.surprise, st = currentStep();
+  if (st) {                                       // a surprise is the most urgent thing, unless a storm is about to hit
     const stormSoon = ft && !S.arrived && ev.protect && !protectedNow() && ev.arriveAt - (CRISIS_SECONDS - S.timeLeft) < 10;
     if (!stormSoon) {
-      if (sp.id === 'leak') return { text: `:meteor: Hull breach at ${TERMINALS[sp.terminal].name}! Run there and HOLD SPACE to patch it`, target: sp.terminal };
-      return { text: `${SURPRISES[sp.id].icon} ${SURPRISES[sp.id].objective} ${Math.ceil(sp.remaining)}s`, target: null, point: sp.point };
+      const bonus = SURPRISES[sp.id].kind === 'bonus';
+      return { text: `${SURPRISES[sp.id].icon} Step ${sp.idx + 1}/${sp.steps.length}: ${st.text}${bonus ? ` (${Math.ceil(sp.remaining)}s)` : ''}`, target: st.terminal || null, point: st.point || null };
     }
   }
   if (ft && !S.arrived) {
@@ -842,9 +915,14 @@ function renderHUD() {
     if (S.retracted) chips += `<span class="chip info">:moon: Panels folded</span>`;
     if (isDusty()) chips += `<span class="chip alert">:hourglass: Dust slows you down</span>`;
     const sp = S.surprise;
-    if (sp && sp.status === 'active') chips += sp.id === 'leak'
-      ? `<span class="chip alert">:meteor: Hull breach! Losing ${RES[sp.res].label}</span>`
-      : `<span class="chip info">${SURPRISES[sp.id].icon} ${SURPRISES[sp.id].short} ${Math.ceil(sp.remaining)}s</span>`;
+    if (sp && sp.status === 'active') {
+      const d = SURPRISES[sp.id], prog = `${Math.min(sp.idx + 1, sp.steps.length)}/${sp.steps.length}`;
+      chips += d.kind === 'disaster'
+        ? `<span class="chip alert">${d.icon} ${d.short}! Step ${prog}</span>`
+        : `<span class="chip info">${d.icon} ${d.short} ${prog} · ${Math.ceil(sp.remaining)}s</span>`;
+    }
+    if (S.carrying) chips += `<span class="chip ok">:${S.carrying.icon}: Carrying ${S.carrying.label}${S.carrying.slow < 1 ? ' (slower)' : ''}</span>`;
+    if (S.solarMul < 1) chips += `<span class="chip alert">:sun: Dusty panels: half Power</span>`;
   }
   if (S.phase !== 'title' && S.phase !== 'tutorial') {
     chips += `<span class="chip info">:star: Research ${S.research}</span>`;
@@ -1363,6 +1441,8 @@ class MarsScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '17px', fontStyle: '700', color: '#ffd93b',
       stroke: '#2b1458', strokeThickness: 7, align: 'center', padding: { x: 4, y: 4 },
     }).setOrigin(0.5, 1).setDepth(50).setVisible(false);
+    this.ring = this.add.graphics().setDepth(44);                      // progress ring while holding SPACE on a step
+    this.carryIcon = this.add.image(0, 0, 'ic_sparkle').setDisplaySize(26, 26).setDepth(46).setVisible(false);
     this.arrow = this.add.image(0, 0, 'ic_arrow-fat-down').setScale(0.5).setOrigin(0.5, 1).setDepth(40).setVisible(false);
     // guide arrow: rides next to the astronaut and always points straight at the current target, with a trail of dots
     this.guide = this.add.image(0, 0, 'ic_arrow-fat-down').setScale(0.55).setDepth(45).setVisible(false);
@@ -1447,6 +1527,54 @@ class MarsScene extends Phaser.Scene {
   clearDrop() {
     (this.dropObjs || []).forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
     this.dropObjs = [];
+  }
+
+  /* ---- dust devil: a twister that rolls across the map. Touch it and it scratches your suit. ---- */
+  spawnDevil() {
+    this.clearDevil();
+    const W = this.physics.world.bounds.width, H = this.physics.world.bounds.height, off = 100;
+    const along = () => Phaser.Math.Between(300, H - 300);
+    const side = Phaser.Math.Between(0, 3);
+    let sx, sy, ex, ey;
+    if (side === 0) { sx = -off; sy = along(); ex = W + off; ey = along(); }
+    else if (side === 1) { sx = W + off; sy = along(); ex = -off; ey = along(); }
+    else if (side === 2) { sx = along(); sy = -off; ex = along(); ey = H + off; }
+    else { sx = along(); sy = H + off; ex = along(); ey = -off; }
+    const len = Math.hypot(ex - sx, ey - sy);
+    const dust = this.textures.exists('glow_soft') ? this.add.image(sx, sy, 'glow_soft').setScale(2.1).setTint(0xd9a066).setAlpha(0.6).setDepth(26) : null;
+    const shadow = this.add.ellipse(sx, sy, 104, 34, 0xd6322a, 0.42).setDepth(2.9);          // red danger zone on the ground
+    this.tweens.add({ targets: shadow, alpha: { from: 0.22, to: 0.55 }, duration: 350, yoyo: true, repeat: -1 });
+    const img = this.add.image(sx, sy, 'ic_tornado').setOrigin(0.5, 0.85).setScale(1.7).setDepth(27);
+    this.devil = { img, shadow, dust, x: sx, y: sy, vx: (ex - sx) / len * DEVIL_SPEED, vy: (ey - sy) / len * DEVIL_SPEED, t: 0, hitCd: 0, W, H };
+  }
+
+  updateDevil(dt, time, p) {
+    const d = this.devil;
+    d.t += dt; d.hitCd -= dt;
+    d.x += d.vx * dt; d.y += d.vy * dt;
+    const sway = Math.sin(d.t * 3) * 16;
+    const px = d.x - (d.vy / DEVIL_SPEED) * sway, py = d.y + (d.vx / DEVIL_SPEED) * sway;
+    d.img.setPosition(px, py).setAngle(Math.sin(d.t * 8) * 9).setScale(1.62 + Math.sin(d.t * 13) * 0.14, 1.7);
+    d.shadow.setPosition(px, py + 6);
+    if (d.dust) d.dust.setPosition(px, py - 44);
+    if (d.hitCd <= 0 && S.phase === 'crisis' && Math.hypot(p.x - px, p.y - (py - 30)) < 52) {
+      d.hitCd = 2;
+      if (S.surprise) S.surprise.hits++;
+      addRes('oxygen', -DEVIL_HIT);
+      const a = Math.atan2(p.y - (py - 30), p.x - px);
+      this.stunT = 0.9; this.kbx = Math.cos(a) * 280; this.kby = Math.sin(a) * 280;
+      toast(`:tornado: Ouch! The dust devil scratched your suit: −${DEVIL_HIT} Oxygen`, 'bad');
+      this.shakeScreen(false);
+      checkLose();
+    }
+    const m = 140;
+    if (d.t > 1 && (px < -m || px > d.W + m || py < -m || py > d.H + m)) { this.clearDevil(); devilDone(); }
+  }
+
+  clearDevil() {
+    if (!this.devil) return;
+    [this.devil.img, this.devil.shadow, this.devil.dust].forEach((o) => { if (o) { this.tweens.killTweensOf(o); o.destroy(); } });
+    this.devil = null;
   }
 
   /* a brief shake when a storm reaches the base */
@@ -1573,7 +1701,7 @@ class MarsScene extends Phaser.Scene {
     const p = this.player;
     const feet = this.ground.getTileAtWorldXY(p.x, p.y + 14);
     const onPath = !!(feet && this.pathIds.has(feet.index));
-    const speed = (onPath ? PATH_SPEED : WALK_SPEED) * (isDusty() ? DUST_FACTOR : 1);
+    const speed = (onPath ? PATH_SPEED : WALK_SPEED) * (isDusty() ? DUST_FACTOR : 1) * (S.carrying ? S.carrying.slow : 1);
     let vx = 0, vy = 0;
     if (!UI.modalOpen && S.phase !== 'over') {
       const c = this.cursors, w = this.wasd;
@@ -1584,6 +1712,7 @@ class MarsScene extends Phaser.Scene {
     }
     const len = Math.hypot(vx, vy) || 1;
     p.setVelocity((vx / len) * speed, (vy / len) * speed);
+    if (this.stunT > 0) { this.stunT -= dt; const f = Math.max(0, this.stunT / 0.9); p.setVelocity(this.kbx * f, this.kby * f); vx = vy = 0; }   // knocked back by the dust devil
     if (vx < 0) p.setFlipX(true); else if (vx > 0) p.setFlipX(false);
     p.setScale(1, vx || vy ? 1 + Math.sin(time / 70) * 0.03 : 1);
     this.shadow.setPosition(p.x, p.y + 18);
@@ -1594,27 +1723,46 @@ class MarsScene extends Phaser.Scene {
     // terminal detection
     const zone = UI.modalOpen ? null : this.nearestZone();
     const faultedHere = !!(zone && S.phase === 'crisis' && S.faults[zone.id]);
-    const sp = S.surprise;
-    const leakHere = !!(zone && S.phase === 'crisis' && sp && sp.status === 'active' && sp.id === 'leak' && sp.terminal === zone.id);
-    const needsHold = faultedHere || leakHere;       // tap SPACE opens the pad, holding SPACE patches
-    if (sp && sp.status === 'active' && sp.point && S.phase === 'crisis' && !UI.modalOpen && Math.hypot(p.x - sp.point.x, p.y + 8 - sp.point.y) < 38) collectSurprise();
+    // surprise steps: stand on the right pad (or spot) and HOLD SPACE until the ring fills
+    const st = currentStep();
+    const live = S.phase === 'crisis' && !UI.modalOpen;
+    const atTerm = !!(st && st.terminal && zone && zone.id === st.terminal && live);
+    const atPoint = !!(st && st.point && live && Math.hypot(p.x - st.point.x, p.y + 8 - st.point.y) < 46);
+    const needsHold = faultedHere || atTerm;         // tap SPACE opens the pad, holding SPACE does the job
+    if (this.stepLock && !this.space.isDown) this.stepLock = false;
+    if ((atTerm || atPoint) && this.space.isDown && !this.stepLock) {
+      this.stepT = (this.stepT || 0) + dt;
+      if (this.stepT >= st.hold) { completeStep(); this.stepT = 0; this.stepLock = true; }
+    } else this.stepT = 0;
+    this.ring.clear();
+    if (this.stepT > 0.08 && st) {
+      const frac = Math.min(1, this.stepT / st.hold);
+      this.ring.lineStyle(11, 0x2b1458, 1).strokeCircle(p.x, p.y + 4, 27);
+      this.ring.lineStyle(6, 0x7ddc5c, 1).beginPath().arc(p.x, p.y + 4, 27, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2, false).strokePath();
+    }
     if (zone && S.phase === 'tutorial') {
-      const st = TUT_STEPS[T.step];
+      const tst = TUT_STEPS[T.step];
       let label = 'Follow the pink arrow first!';
-      if (st && zone.id === st.target) {
-        label = st.hold ? (T.hold > 0 ? `Patching… ${Math.round(100 * T.hold / TUT_HOLD)}%` : 'HOLD SPACE (keep it down!)') : 'Press SPACE';
+      if (tst && zone.id === tst.target) {
+        label = tst.hold ? (T.hold > 0 ? `Patching… ${Math.round(100 * T.hold / TUT_HOLD)}%` : 'HOLD SPACE (keep it down!)') : 'Press SPACE';
       }
       this.prompt.setText(plainText(label)).setPosition(p.x, p.y - 34).setVisible(true);
-    } else if (zone) {
-      const label = leakHere && this.holding && this.holdT > 0.2 ? `Patching the hole… ${Math.min(99, Math.round(100 * this.holdT / LEAK_FIX_HOLD))}%`
-        : S.patching ? ':wrench: Patching… leak slowed!'
-        : leakHere && !faultedHere ? `${TERMINALS[zone.id].name} has a HOLE!
-TAP SPACE: open  ·  HOLD SPACE: patch it`
-        : faultedHere ? `${TERMINALS[zone.id].name} is BROKEN!
-TAP SPACE: open  ·  HOLD SPACE: patch the leak`
-        : `Press SPACE to use ${TERMINALS[zone.id].name}`;
-      this.prompt.setText(plainText(label)).setPosition(p.x, p.y - 34).setVisible(true);
+    } else if (zone || atPoint) {
+      const nm = zone ? TERMINALS[zone.id].name : '';
+      let label;
+      if ((atTerm || atPoint) && this.stepT > 0.08) label = `${st.verb[0].toUpperCase()}${st.verb.slice(1)}… ${Math.min(99, Math.round(100 * this.stepT / st.hold))}%`;
+      else if (atPoint) label = `HOLD SPACE: ${st.verb}`;
+      else if (atTerm) label = `${nm}\nTAP SPACE: open  ·  HOLD SPACE: ${st.verb}`;
+      else if (S.patching) label = ':wrench: Patching… leak slowed!';
+      else if (faultedHere) label = `${nm} is BROKEN!\nTAP SPACE: open  ·  HOLD SPACE: patch the leak`;
+      else label = `Press SPACE to use ${nm}`;
+      this.prompt.setText(plainText(label)).setPosition(p.x, p.y - (atPoint ? 40 : 34)).setVisible(true);
     } else this.prompt.setVisible(false);
+
+    // dust devil, and the load the astronaut is carrying
+    if (this.devil) this.updateDevil(dt, time, p);
+    this.carryIcon.setVisible(!!S.carrying && S.phase === 'crisis');
+    if (S.carrying) this.carryIcon.setTexture('ic_' + S.carrying.icon).setPosition(p.x + 15, p.y - 32 + Math.sin(time / 200) * 2);
 
     const modalAtStart = UI.modalOpen;      // a card opened by this very SPACE press must not be closed by it
     if (S.phase === 'tutorial') tutorialTick(dt, zone, spaceDown, this.space.isDown);
@@ -1633,7 +1781,6 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
         if (this.space.isDown && needsHold) {
           this.holdT += dt;
           S.patching = faultedHere && this.holdT >= HOLD_SECONDS;
-          if (leakHere && this.holdT >= LEAK_FIX_HOLD) fixLeak();
         } else {
           if (spaceUp && needsHold && this.holdT < HOLD_SECONDS) openTerminal(zone.id);
           this.holding = false; S.patching = false;

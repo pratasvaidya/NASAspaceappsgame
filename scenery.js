@@ -242,6 +242,7 @@ function build(scene, map, cfg) {
 
   /* ---------- scenery props (placed only where they will not block anything) ---------- */
   const placed = [];         // {x0,y0,x1,y1} footprints of things already placed
+  const visuals = [];        // the full drawn size of each prop (they can be much taller than their footprint)
   const solids = [];         // footprints the player must walk around
   const images = [];         // props drawn as separate sprites so the astronaut can walk behind them
   const padRects = (cfg.zones || []).map((z) => z.rect);
@@ -268,6 +269,7 @@ function build(scene, map, cfg) {
         const x0 = cx - w / 2, x1 = cx + w / 2, y0 = by - foot, y1 = by;
         if (!footprintFree(x0, y0, x1, y1, margin)) continue;
         placed.push({ x0, y0: y0 - 4, x1, y1 });
+        visuals.push({ x0, y0: by - h, x1, y1: by });
         if (opt.solid) solids.push({ x: x0 + 2, y: y0, w: w - 4, h: foot });
         // contact shadow baked into the ground
         c.save(); c.fillStyle = 'rgba(55,16,4,0.30)'; c.beginPath(); c.ellipse(cx + w * 0.06, by - 2, w * 0.46, Math.max(6, h * 0.11), 0, 0, 7); c.fill(); c.restore();
@@ -325,7 +327,11 @@ function build(scene, map, cfg) {
   const spots = [];
   for (let ty = 2; ty < rows - 2; ty++) for (let tx = 2; tx < cols - 2; tx++) {
     const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
-    if (footprintFree(cx - 30, cy - 30, cx + 30, cy + 30, 0)) spots.push({ x: cx, y: cy });
+    if (!footprintFree(cx - 30, cy - 30, cx + 30, cy + 30, 0)) continue;
+    let hidden = false;                                            // not behind or under anything tall (the pod stands about 80px high)
+    for (let yy = ty - 3; yy <= ty + 1 && !hidden; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (yy >= 0 && xx >= 0 && yy < rows && xx < cols && WL[yy][xx]) { hidden = true; break; }
+    for (const v of visuals) if (cx + 38 > v.x0 && cx - 38 < v.x1 && cy + 26 > v.y0 && cy - 90 < v.y1) { hidden = true; break; }
+    if (!hidden) spots.push({ x: cx, y: cy });
   }
 
   /* ---------- turn the painting into a game texture ---------- */
