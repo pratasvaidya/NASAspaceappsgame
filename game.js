@@ -52,6 +52,8 @@ const BADGES = [
   { id: 'calm',      icon: ':snowflake:', name: 'Cool Under Pressure', text: 'Win without any bar dropping under 25',    test: (s) => s.result === 'won' && s.stats.minRes >= 25 },
   { id: 'hull',      icon: ':meteor:',    name: 'Hull Hero',           text: 'Patch 3 hull breaches in one mission',      test: (s) => s.stats.patched >= 3 },
   { id: 'finder',    icon: ':sparkle:',   name: 'Treasure Hunter',     text: 'Collect 3 surprise finds in one mission',   test: (s) => s.stats.finds >= 3 },
+  { id: 'explorer',  icon: ':compass:',  name: 'Off-Road Explorer',   text: 'Make 4 discoveries off the paths in one mission', test: (s) => s.stats.discoveries >= 4 },
+  { id: 'journal',   icon: ':book-open:', name: 'Field Scientist',    text: 'Fill every page of the Field Journal',     test: () => journalCount() >= DISCOVERIES.length },
   { id: 'commander', icon: ':fire:', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
 ];
 /* Surprises: things that happen mid-Sol with NO warning in the briefing, so shields alone never solve a day.
@@ -117,6 +119,35 @@ const ENDURED = {
 const TAG_DEFAULT = { good: 'blocked', fixed: 'repaired', bad: 'endured' };
 
 const KEY_SOUND = 'marsOutpost.sound.v1';
+/* Exploring: the open Martian dirt off the paths hides a few twinkling discoveries every mission. They are never needed
+   to win (no arrow points at them and they never change Power, Oxygen or Food), but they fill a Field Journal that is kept
+   between missions, count towards two badges and add a few points. Each one is a real thing NASA found on Mars. */
+const FINDS_PER_RUN = 6, FIND_POINTS = 25, FIND_REACH = 30;
+const DISCOVERIES = [
+  { id: 'blueberries', icon: ':planet:', name: 'Martian "Blueberries"',
+    fact: 'In 2004 NASA\'s Opportunity rover found the ground covered in tiny round balls of a mineral called hematite. Scientists nicknamed them "blueberries". They formed in water, a very long time ago.' },
+  { id: 'meteorite', icon: ':meteor:', name: 'Iron Meteorite',
+    fact: 'In 2005 Opportunity bumped into a basketball-sized iron meteorite nicknamed "Heat Shield Rock". It was the first meteorite ever found on another planet!' },
+  { id: 'ice', icon: ':snowflake:', name: 'Buried Water Ice',
+    fact: 'In 2008 NASA\'s Phoenix lander dug a trench and found bright chunks of ice just under the soil. A few days later they had vanished: on Mars, ice can turn straight into gas.' },
+  { id: 'mudstone', icon: ':books:', name: 'Ancient Lake Mud',
+    fact: 'The Curiosity rover found layers of mudstone in Gale Crater. Mud like this settles at the bottom of lakes, so this crater once held a lake of water, billions of years ago.' },
+  { id: 'pebble', icon: ':map-pin:', name: 'Smooth River Pebble',
+    fact: 'In 2012 Curiosity found rounded pebbles stuck together in rock. Pebbles only get this smooth when a stream rolls them along, so water once flowed here, about ankle-deep to hip-deep.' },
+  { id: 'gypsum', icon: ':sparkle:', name: 'Bright Mineral Vein',
+    fact: 'Curiosity found bright white veins of a mineral called gypsum filling cracks in the rocks. Water trickling through the cracks left the mineral behind.' },
+  { id: 'sulfur', icon: ':sun:', name: 'Yellow Sulfur Crystals',
+    fact: 'In 2024 Curiosity rolled over a rock and cracked it open, showing yellow crystals of pure sulfur. Nobody had found pure sulfur on Mars before!' },
+  { id: 'organics', icon: ':flask:', name: 'Ancient Carbon Clues',
+    fact: 'In 2018 Curiosity found organic molecules (carbon-based chemicals that can be building blocks of life) in rocks about 3 billion years old. They do not prove life existed, but they are great clues.' },
+  { id: 'leopard', icon: ':microscope:', name: 'Leopard-Spot Rock',
+    fact: 'In 2024 the Perseverance rover found a rock nicknamed "Cheyava Falls" covered in tiny "leopard spots". Scientists say the spots could be a sign of ancient microbes, and they are still studying it.' },
+  { id: 'rotor', icon: ':gear:', name: 'Helicopter Rotor Piece',
+    fact: 'NASA\'s Ingenuity helicopter made the first powered, controlled flight on another planet in 2021 and flew 72 times. On its last flight, in 2024, a rotor blade broke and a piece landed on the sand.' },
+];
+const KEY_JOURNAL = 'marsOutpost.journal.v1';
+const journalCount = () => Object.keys(store.get(KEY_JOURNAL, {})).filter((k) => DISCOVERIES.some((d) => d.id === k)).length;
+
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
 /* The training: under a minute, learn by doing. Each step points at a pad with the pink arrow. */
@@ -406,7 +437,9 @@ const S = {
   lossReason: '',
   diff: 'normal',         // easy | normal | hard (remembered between visits)
   twist: TWISTS[0],       // this mission's random landing-site twist
-  stats: { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 },
+  stats: { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0, discoveries: 0 },
+  finds: [],              // this mission's hidden discoveries: { id, x, y, got }
+  foundToday: [],         // discoveries made this Sol (for the night summary)
   plan: null,             // the surprise planned for this Sol (not shown in the briefing!)
   surprise: null,         // the surprise that is happening now
   carrying: null,         // something heavy being carried for a surprise
@@ -519,7 +552,8 @@ function beginRun() {
   S.result = null;
   S.lossReason = '';
   S.final = null;
-  S.stats = { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 };
+  S.stats = { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0, discoveries: 0 };
+  layFinds();
   S.log = []; S.loggedSol = 0;
   startSol(1);
 }
@@ -537,6 +571,8 @@ function startTutorial() {
   if (scene && scene.clearDrop) scene.clearDrop();
   if (scene && scene.clearDevil) scene.clearDevil();
   S.twist = TWISTS[0];
+  S.finds = [];
+  if (scene && scene.clearFinds) scene.clearFinds();
   if (scene) scene.teleportToSpawn();
   showModal({
     kind: 'tutorial', icon: ':graduation-cap:', title: 'Mars Training',
@@ -594,7 +630,8 @@ function advanceTutorial(i) {
         <li>:shield-check: Raise shields <b>before</b> the storm hits.</li>
         <li>:wrench: If something breaks: ask Earth at :broadcast: Comms, then <b>HOLD SPACE</b> at the red pad.</li>
         <li>:meteor: <b>Surprises</b> happen with no warning. Follow the pink arrow and act fast!</li>
-        <li>:scales: Check your three bars. <b>Every choice has a price.</b></li></ul></div>
+        <li>:scales: Check your three bars. <b>Every choice has a price.</b></li>
+        <li>:compass: Like exploring? Hidden <b>discoveries</b> twinkle out on the dirt, off the paths. They are just for fun (and badges)!</li></ul></div>
       <p class="hint">Each mission has a different storm order, landing site and real NASA data. Try all three difficulties and collect every badge!</p>`,
     buttons: [{ label: ':rocket-launch: Start Sol 1', cls: 'good', onClick: closeModal }],
     noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to start',
@@ -641,6 +678,7 @@ function startSol(n) {
   S.solarMul = 1;
   if (scene && scene.clearDevil) scene.clearDevil();
   S.plan = rollSurprise(S.event);
+  S.foundToday = [];
   if (scene) scene.teleportToSpawn();
   closeModal();
   toast(`:sun-horizon: Sol ${n} begins! Visit the Comms Center for your briefing.`);
@@ -853,6 +891,51 @@ function surpriseLines(sp) {
   return [{ ok: false, text: `${d.icon} Surprise! You did not finish in time: the wind buried the ${d.short.toLowerCase()}.` }];
 }
 
+/* ---------------------------------------------------------------------
+   Exploring: hidden discoveries off the paths
+   --------------------------------------------------------------------- */
+function layFinds() {
+  const have = store.get(KEY_JOURNAL, {});
+  const kinds = DISCOVERIES.slice().sort(() => Math.random() - 0.5)
+    .sort((a, b) => (have[a.id] ? 1 : 0) - (have[b.id] ? 1 : 0))          // pages the player has not found yet come first
+    .slice(0, FINDS_PER_RUN);
+  S.finds = scene && scene.layFinds ? scene.layFinds(kinds.map((d) => d.id)) : [];
+}
+
+function collectFind(i) {
+  const f = S.finds[i];
+  if (!f || f.got) return;
+  f.got = true;
+  if (scene && scene.removeFind) scene.removeFind(i);
+  S.stats.discoveries++;
+  S.foundToday.push(f.id);
+  const d = DISCOVERIES.find((x) => x.id === f.id);
+  const journal = store.get(KEY_JOURNAL, {}), isNew = !journal[f.id];
+  if (isNew) { journal[f.id] = true; store.set(KEY_JOURNAL, journal); }
+  const left = S.finds.filter((x) => !x.got).length;
+  SFX.play('fanfare');
+  showModal({
+    kind: 'find', icon: d.icon, title: isNew ? 'New Discovery!' : 'Discovery!',
+    body: `<p><b>${d.icon} ${d.name}</b></p>
+      <div class="card science">${d.fact}</div>
+      <p>${isNew ? ':book-open: <b>New page</b> in your Field Journal!' : ':book-open: You already have this page in your Field Journal.'}
+        (${journalCount()}/${DISCOVERIES.length} pages) &nbsp; +${FIND_POINTS} points</p>
+      <p class="hint">${left ? `:compass: ${left} more hidden out on the dirt this mission.` : ':confetti: That was the last one this mission!'} The clock is paused while you read.</p>`,
+    buttons: [{ label: 'Cool! :play:', cls: 'good', onClick: closeModal }],
+    noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to keep going',
+  });
+}
+
+function journalCard() {
+  const have = store.get(KEY_JOURNAL, {}), n = journalCount();
+  const rows = DISCOVERIES.map((d) => (have[d.id]
+    ? `<li><b>${d.icon} ${d.name}:</b> ${d.fact}</li>`
+    : '<li class="locked">:lock: ??? <span class="hint">(still hidden somewhere on Mars)</span></li>')).join('');
+  return `<details class="more journal"><summary>:book-open: Field Journal: ${n}/${DISCOVERIES.length} pages (tap to open)</summary>
+    <p class="hint">Walk off the paths during a mission to find twinkling discoveries. Just for fun, badges and a few points!</p>
+    <ul>${rows}</ul></details>`;
+}
+
 /* Write this Sol into the mission log (once). finished = the Sol reached night; otherwise the base was lost mid-Sol. */
 function logSol(finished) {
   if (S.loggedSol === S.sol || !S.event) return;
@@ -930,6 +1013,7 @@ function endSol() {
     lines.push({ ok: false, text: `${ev.emoji} ${ev.faultLabel} all day. ${ev.hitText} (${stat() || 'a little'} during the day, then ${Object.entries(night).map(([k, v]) => `−${v} ${RES[k].label}`).join(', ')} overnight)` });
   }
   if (sp) lines.push(...surpriseLines(sp));
+  if (S.foundToday.length) lines.push({ ok: true, text: `:compass: Off the paths you discovered: ${S.foundToday.map((id) => DISCOVERIES.find((d) => d.id === id).name).join(', ')}.` });
   if (S.retracted) lines.push({ ok: false, text: ':moon: Panels stayed folded: no solar power today.' });
   else lines.push({ ok: true, text: `:sun: Solar panels made +${Math.round(S.solar)} Power.` });
   if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `:wind: Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
@@ -973,7 +1057,7 @@ function endSol() {
 
 function tick(dt) {
   if (S.phase !== 'crisis') return;
-  if (UI.modalKind === 'archives') return; // reading the archives pauses the clock
+  if (UI.modalKind === 'archives' || UI.modalKind === 'find') return; // reading the archives or a discovery pauses the clock
   S.timeLeft -= dt;
   const ev = S.event;
 
@@ -1075,7 +1159,7 @@ function renderHUD() {
   const training = S.phase === 'tutorial';
   setText($('solNum'), 'sol', training ? 'Training' : `Sol ${S.sol}`);
   setText($('solOf'), 'solof', training ? 'practice' : `of ${SOL_GOAL}`);
-  const paused = S.phase !== 'crisis' || UI.modalKind === 'archives';
+  const paused = S.phase !== 'crisis' || UI.modalKind === 'archives' || UI.modalKind === 'find';
   setText($('clock'), 'clock', training ? ':graduation-cap:' : S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
   setText($('phaseLabel'), 'phase', training ? 'No rush' : S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? crisisLabel(paused) : 'Night');
   $('clockBox').classList.toggle('paused', paused);
@@ -1116,6 +1200,7 @@ function renderHUD() {
   }
   if (S.phase !== 'title' && S.phase !== 'tutorial') {
     chips += `<span class="chip info">:star: Research ${S.research}</span>`;
+    if (S.stats.discoveries) chips += `<span class="chip info">:compass: Finds ${S.stats.discoveries}/${S.finds.length}</span>`;
     chips += `<span class="chip info meta">${DIFFS[S.diff].icon} ${DIFFS[S.diff].name}</span><span class="chip info meta">${S.twist.icon} ${S.twist.name}</span>`;   // 'meta' chips hide on phones to save room
   }
   setHtml($('status'), 'status', chips);
@@ -1240,7 +1325,7 @@ function openComms(msg) {
       if (S.phase === 'briefing') {
         return {
           icon: t.icon, title: `Sol ${S.sol} Morning Briefing`,
-          body: `${missionCard()}${eventCard(ev)}<div class="card"><b>:warning: Heads up:</b> surprises can happen at any time with <b>no warning</b>. Keep your eyes open!</div><p class="hint">The clock starts when you press the button!</p>`,
+          body: `${missionCard()}${eventCard(ev)}<div class="card"><b>:warning: Heads up:</b> surprises can happen at any time with <b>no warning</b>. Keep your eyes open!</div>${S.sol === 1 ? '<p class="hint">:compass: Bonus: hidden discoveries twinkle out on the Martian dirt, off the paths. You can explore now, before the clock starts!</p>' : ''}<p class="hint">The clock starts when you press the button!</p>`,
           buttons: [{ label: `:timer: Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
           noClose: true,
           keyHint: 'Press <kbd>ESC</kbd> or <kbd>SPACE</kbd> to close. The clock stays paused until you press Start.',
@@ -1458,6 +1543,7 @@ function showTitle() {
           <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
           <p class="hint">Every mission has a different storm order, a random landing site, and real NASA data.</p>
           <h3>Badges: ${got}/${BADGES.length}</h3>${badgeGrid(earned)}
+          ${journalCard()}
           <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">:planet: ${DONKI.label}</span></div>`,
         buttons,
         after: (m) => m.querySelectorAll('.diff').forEach((el) => el.addEventListener('click', () => {
@@ -1476,8 +1562,9 @@ function finalizeRun() {
     sols: (won ? SOL_GOAL : Math.max(0, S.sol - 1)) * 100,
     supplies: won ? Object.values(S.res).reduce((t, v) => t + Math.ceil(v), 0) : 0,
     science: S.research * 40,
+    finds: S.stats.discoveries * FIND_POINTS,
   };
-  const score = Math.round((parts.sols + parts.supplies + parts.science) * d.mult);
+  const score = Math.round((parts.sols + parts.supplies + parts.science + parts.finds) * d.mult);
   const best = store.get(KEY_BEST, {}), prev = best[S.diff] || 0;
   const isNew = score > prev;
   if (isNew) { best[S.diff] = score; store.set(KEY_BEST, best); }
@@ -1522,7 +1609,7 @@ function showEndModal() {
   const f = finalizeRun(), d = DIFFS[S.diff];
   const scoreCard = `<div class="card score">
       <div class="bigscore">:star: Score: ${f.score}</div>
-      <div class="hint">Sols survived ${f.parts.sols} + supplies left ${f.parts.supplies} + research ${f.parts.science}${d.mult !== 1 ? ` &times; ${d.mult} (${d.name})` : ''}</div>
+      <div class="hint">Sols survived ${f.parts.sols} + supplies left ${f.parts.supplies} + research ${f.parts.science}${f.parts.finds ? ` + discoveries ${f.parts.finds}` : ''}${d.mult !== 1 ? ` &times; ${d.mult} (${d.name})` : ''}</div>
       <p>${f.isNew ? `:confetti: <b>New best on ${d.name}!</b>${f.prev ? ` (old best: ${f.prev})` : ''}` : `Your best on ${d.name}: <b>${f.prev}</b>`}</p></div>`;
   const badgeCard = (f.fresh.length ? `<div class="card real"><b>:medal: New badge${f.fresh.length > 1 ? 's' : ''}!</b> ${f.fresh.map((b) => `${b.icon} <b>${b.name}</b>`).join(' &nbsp; ')}</div>` : '') +
     (f.next ? `<p class="hint">Next badge to try: ${f.next.icon} <b>${f.next.name}</b>: ${f.next.text}.</p>` : '<p class="hint">:sparkle: You have every badge. Wow, space legend!</p>');
@@ -1533,9 +1620,9 @@ function showEndModal() {
     body: won
       ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! Here is what you handled, and how real NASA engineers tackle the same problems.</p>
          ${missionLog()}
-         <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>:star: Research collected: <b>${S.research}</b></div>
+         <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>:star: Research collected: <b>${S.research}</b>${S.stats.discoveries ? `<br>:compass: Discoveries off the paths: <b>${S.stats.discoveries}</b>` : ''}</div>
          ${scoreCard}${badgeCard}${CREDIT}`
-      : `<p>${S.lossReason} You made it to Sol ${S.sol}. :star: Research: ${S.research}.</p>
+      : `<p>${S.lossReason} You made it to Sol ${S.sol}. :star: Research: ${S.research}.${S.stats.discoveries ? ` :compass: Discoveries: ${S.stats.discoveries}.` : ''}</p>
          ${missionLog()}
          <div class="card science"><b>:graduation-cap: What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
          ${scoreCard}${badgeCard}
@@ -1732,7 +1819,8 @@ class MarsScene extends Phaser.Scene {
 
   /* ---- surprise pickups: a glowing supply pod or rock somewhere on the map ---- */
   pickSpot() {
-    const spots = (this.scenery && this.scenery.spots) || [], p = this.player;
+    const nearFind = (q) => (S.finds || []).some((f) => !f.got && Math.hypot(q.x - f.x, q.y - f.y) < 90);
+    const spots = ((this.scenery && this.scenery.spots) || []).filter((q) => !nearFind(q)), p = this.player;
     const mid = spots.filter((q) => { const d = Math.hypot(q.x - p.x, q.y - p.y); return d > 280 && d < 800; });
     const pool = mid.length ? mid : spots;
     return pool.length ? pick(pool) : { x: this.spawn.x + 220, y: this.spawn.y + 220 };
@@ -1755,6 +1843,67 @@ class MarsScene extends Phaser.Scene {
     this.tweens.add({ targets: icon, y: y - 66, duration: 480, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: item, y: y + 16, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.dropObjs = objs;
+  }
+
+  /* ---- hidden discoveries: little twinkles out on the open dirt, well away from the paths ---- */
+  layFinds(ids) {
+    this.clearFinds();
+    // every open dirt tile: no paving within 2 tiles, no wall next to it, not inside or behind a prop, not near the start
+    const sc = this.scenery, solids = (sc && sc.solids) || [];
+    const props = ((sc && sc.propSprites) || []).map((im) => im.getBounds());
+    const cols = this.ground.layer.width, rows = this.ground.layer.height;
+    const pool = [];
+    for (let ty = 2; ty < rows - 2; ty++) for (let tx = 2; tx < cols - 2; tx++) {
+      const x = tx * 32 + 16, y = ty * 32 + 16;
+      let ok = Math.hypot(x - this.spawn.x, y - this.spawn.y) > 260;
+      for (let yy = ty - 2; yy <= ty + 2 && ok; yy++) for (let xx = tx - 2; xx <= tx + 2; xx++) {
+        const g = this.ground.getTileAt(xx, yy), w = this.walls.getTileAt(xx, yy);
+        if ((g && this.pathIds.has(g.index)) || (w && w.index > 0 && Math.abs(xx - tx) <= 1 && Math.abs(yy - ty) <= 1)) { ok = false; break; }
+      }
+      if (ok && solids.some((r) => x > r.x - 26 && x < r.x + r.w + 26 && y > r.y - 26 && y < r.y + r.h + 26)) ok = false;
+      if (ok && props.some((b) => x > b.x - 14 && x < b.right + 14 && y > b.y - 14 && y < b.bottom + 14)) ok = false;
+      if (ok) pool.push({ x, y });
+    }
+    pool.sort(() => Math.random() - 0.5);
+    const out = [];
+    for (const q of pool) {
+      if (out.length >= ids.length) break;
+      if (out.some((o) => Math.hypot(o.x - q.x, o.y - q.y) < 280)) continue;   // spread them around the whole map
+      out.push({ id: ids[out.length], x: q.x, y: q.y, got: false });
+    }
+    this.findObjs = out.map((f) => this.makeFindMarker(f.x, f.y));
+    return out;
+  }
+
+  makeFindMarker(x, y) {
+    const objs = [];
+    objs.push(this.add.ellipse(x, y + 6, 30, 11, 0x5a1c08, 0.35).setDepth(1.1));      // a little disturbed patch of dirt
+    if (this.textures.exists('glow_soft')) {
+      const glow = this.add.image(x, y, 'glow_soft').setScale(0.6).setTint(0xfff1b8).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.5).setAlpha(0.6);
+      this.tweens.add({ targets: glow, alpha: { from: 0.35, to: 0.95 }, scale: { from: 0.5, to: 0.8 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 900 });
+      objs.push(glow);
+    }
+    const star = this.add.graphics({ x, y: y - 4 }).setDepth(2.6);                    // a four-point twinkle
+    const tw = (r, w, col, a) => { star.fillStyle(col, a); star.fillPoints([{ x: 0, y: -r }, { x: w, y: -w }, { x: r, y: 0 }, { x: w, y: w }, { x: 0, y: r }, { x: -w, y: w }, { x: -r, y: 0 }, { x: -w, y: -w }], true); };
+    tw(16, 4, 0x2b1458, 0.9); tw(12.5, 2.8, 0xffffff, 1); star.fillStyle(0xffe27a, 1).fillCircle(0, 0, 2.6);
+    this.tweens.add({ targets: star, scale: { from: 0.55, to: 1.15 }, angle: { from: 0, to: 45 }, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 750 });
+    objs.push(star);
+    return objs;
+  }
+
+  removeFind(i) {
+    const objs = (this.findObjs || [])[i];
+    if (!objs) return;
+    const star = objs[objs.length - 1];
+    objs.forEach((o) => this.tweens.killTweensOf(o));
+    this.tweens.add({ targets: objs, alpha: 0, duration: 350, onComplete: () => objs.forEach((o) => o.destroy()) });
+    this.tweens.add({ targets: star, y: star.y - 40, scale: 2, duration: 350 });
+    this.findObjs[i] = null;
+  }
+
+  clearFinds() {
+    (this.findObjs || []).forEach((objs) => (objs || []).forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); }));
+    this.findObjs = [];
   }
 
   clearDrop() {
@@ -2023,6 +2172,12 @@ class MarsScene extends Phaser.Scene {
           this.holding = false; S.patching = false;
         }
       } else S.patching = false;
+    }
+
+    // walking onto a hidden discovery picks it up (only on a real Sol, never during training or at night)
+    if (!UI.modalOpen && (S.phase === 'briefing' || S.phase === 'crisis') && S.finds) {
+      const i = S.finds.findIndex((f) => !f.got && Math.hypot(p.x - f.x, p.y + 8 - f.y) < FIND_REACH);
+      if (i >= 0) collectFind(i);
     }
 
     // marker visuals

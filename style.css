@@ -330,3 +330,8 @@ body.touch #modal p.hint.keys { display: none; }
   #act { width: 108px; height: 108px; right: 16px; bottom: 18px; font-size: 22px; }
   body.touch #toast { bottom: 156px; }
 }
+
+/* ---------- Field Journal (hidden discoveries found off the paths) ---------- */
+#modal details.journal ul { padding-left: 4px; list-style: none; }
+#modal details.journal li { margin: 8px 0; font-size: 16px; line-height: 1.35; }
+#modal details.journal li.locked { opacity: .6; }
