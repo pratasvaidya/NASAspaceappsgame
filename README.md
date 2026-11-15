@@ -21,7 +21,8 @@ Controls: WASD or arrow keys to walk (you run about 35% faster on the paved path
 - **Three challenges:** Cadet (gentler storms), Astronaut, Commander (stronger storms, a hungrier base, fewer supplies).
 - **A new landing site every mission** (random twist): Sunny Plateau (more solar Power, less Food), Garden Dome (more Food from crops, less Oxygen), Shield Ridge (cheaper shields, less Power), Dusty Valley (scrubbers cost double, swept panels give more Power), or a Standard site.
 - **Shuffled storms and real data:** the eight events come in a different order each mission, arrive at different times, and are scaled by a different real DONKI record each time. Storms also get 4% stronger every Sol.
-- **Score and personal best** for each challenge, plus **six badges** to collect (Storm Dodger, Fix-It Pro, Junior Scientist, Cool Under Pressure, Mars Survivor, Commander). Scores and badges are saved only in your own browser.
+- **Surprises with no warning:** the briefing tells you about the storm, but things also happen mid-Sol that nobody warned you about. A space rock can punch a **hull breach** in a wing (run there and hold SPACE to patch it yourself, no Earth call needed), a **supply pod** can land somewhere on the map, or the rover can spot a **glowing rock** worth 2 research stars. Race to them before the wind buries them. Every calm Sol gets one, and about half of the storm Sols do, so raising shields is never the whole job. (Surprises are game design inspired by real events: micrometeoroid hits, cargo deliveries and rock sampling. They are not NASA data.)
+- **Score and personal best** for each challenge, plus **eight badges** to collect (Storm Dodger, Fix-It Pro, Hull Hero, Treasure Hunter, Junior Scientist, Cool Under Pressure, Mars Survivor, Commander). Scores and badges are saved only in your own browser.
 
 
 ## The trade-offs (nothing is free)
@@ -50,6 +51,7 @@ Each Sol: briefing (clock paused) → 90 seconds of crisis → night (−15 Oxyg
 The title screen and the NASA Archives terminal always say whether the DONKI data is **LIVE**, a **SAVED COPY** from this browser's cache (6 hour cache), or a **saved sample** of real records downloaded on 14 Nov 2026 (used only if NASA can't be reached). We never present saved data as live.
 
 Notes:
+- For demos you can force a surprise early with `?surprise=leak`, `?surprise=supply` or `?surprise=science` added to the address.
 - If the graphics look broken on an old computer, open the game with `?canvas` added to the address (for example `http://localhost:8000/?canvas`) to use the simpler renderer.
 - The flare endpoint (`/DONKI/FLR`) was returning an error when this was built. The game handles that and just uses the other record types.
 - The default `DEMO_KEY` has a low rate limit. Results are cached for 6 hours. For classrooms, get a free key at <https://api.nasa.gov> and open the game with `?key=YOUR_KEY`.

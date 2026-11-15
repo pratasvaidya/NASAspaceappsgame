@@ -321,6 +321,13 @@ function build(scene, map, cfg) {
     i++;
   }
 
+  // open ground where a surprise supply pod or rock can appear (never on a prop, a wall or a pad)
+  const spots = [];
+  for (let ty = 2; ty < rows - 2; ty++) for (let tx = 2; tx < cols - 2; tx++) {
+    const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
+    if (footprintFree(cx - 30, cy - 30, cx + 30, cy + 30, 0)) spots.push({ x: cx, y: cy });
+  }
+
   /* ---------- turn the painting into a game texture ---------- */
   scene.textures.addCanvas('ground_art', cv);
   scene.textures.get('ground_art').setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -379,7 +386,7 @@ function build(scene, map, cfg) {
 
   let mood = 'day', lastLightDraw = 0;
   const ctrl = {
-    solids, propSprites,
+    solids, propSprites, spots,
     /* shadows under buildings, rocks and trees, cut from the actual shape of each wall tile.
        pick(tile) says which picture to take that tile's shape from. */
     makeShadows(pick) {

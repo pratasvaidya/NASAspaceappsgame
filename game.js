@@ -46,8 +46,26 @@ const BADGES = [
   { id: 'fixit',     icon: ':wrench:', name: 'Fix-It Pro',          text: 'Reset 3 broken systems in one mission',    test: (s) => s.stats.fixed >= 3 },
   { id: 'scientist', icon: ':microscope:', name: 'Junior Scientist',    text: 'Collect 5 :star: research in one mission',      test: (s) => s.research >= 5 },
   { id: 'calm',      icon: ':snowflake:', name: 'Cool Under Pressure', text: 'Win without any bar dropping under 25',    test: (s) => s.result === 'won' && s.stats.minRes >= 25 },
+  { id: 'hull',      icon: ':meteor:',    name: 'Hull Hero',           text: 'Patch 3 hull breaches in one mission',      test: (s) => s.stats.patched >= 3 },
+  { id: 'finder',    icon: ':sparkle:',   name: 'Treasure Hunter',     text: 'Collect 3 surprise finds in one mission',   test: (s) => s.stats.finds >= 3 },
   { id: 'commander', icon: ':fire:', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
 ];
+/* Surprises: things that happen mid-Sol with NO warning in the briefing, so shields alone never solve a day. */
+const SURPRISE_MIN = 22, SURPRISE_MAX = 62;   // they start somewhere in this window (seconds after the clock starts)
+const PICKUP_SECONDS = 35;                    // time to reach a supply pod or rock find
+const LEAK_RATE = 0.7;                        // a hull breach loses this much per second until patched
+const LEAK_FIX_HOLD = 1.5;                    // hold SPACE this long on the pad to patch it yourself (no Earth call needed)
+const SUPPLY_GAIN = { easy: 30, normal: 25, hard: 20 };
+const LEAK_SPOTS = ['terminal_lifesupport', 'terminal_hydroponics', 'terminal_airlock', 'terminal_shields'];
+const LEAK_RES = { terminal_lifesupport: 'oxygen', terminal_hydroponics: 'food', terminal_airlock: 'oxygen', terminal_shields: 'power' };
+const SURPRISES = {
+  leak: { icon: ':meteor:', short: 'Hull breach', title: 'Micro-meteoroid hit!',
+    lesson: 'Tiny space rocks called micrometeoroids hit spacecraft all the time. In 2016 a tiny fleck of space debris chipped a window on the International Space Station. Crews patch small holes themselves, right away, because waiting for help from home takes too long.' },
+  supply: { icon: ':sparkle:', short: 'Supply pod', banner: 'A supply pod just landed! Grab it before the wind buries it!', objective: 'Run to the glowing supply pod!',
+    lesson: 'Real cargo ships like SpaceX Dragon and Cygnus deliver food and gear to the International Space Station. A Mars base would need regular deliveries too.' },
+  science: { icon: ':star:', short: 'Rock find', banner: 'The rover spotted a strange glowing rock! Go look before it gets covered!', objective: 'Run to the glowing rock!',
+    lesson: 'NASA\'s Perseverance rover collects rock samples in sealed tubes so scientists can study them. Finding a good rock is a big deal!' },
+};
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
 /* The training: under a minute, learn by doing. Each step points at a pad with the pink arrow. */
@@ -71,7 +89,7 @@ const TUT_STEPS = [
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
 const TILES_PATH = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.png';
 const ATLAS_XML = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.xml';
-const WORLD_ICONS = ['broadcast', 'books', 'shield-check', 'plant', 'wind', 'door', 'warning', 'arrow-fat-down', 'house'];
+const WORLD_ICONS = ['broadcast', 'books', 'shield-check', 'plant', 'wind', 'door', 'warning', 'arrow-fat-down', 'house', 'star', 'sparkle'];
 const iconOf = (token) => String(token).replace(/:/g, '');   // ':broadcast:' -> 'broadcast'
 
 const FONT = 'Fredoka, "Arial Rounded MT Bold", "Comic Sans MS", sans-serif';
@@ -307,7 +325,9 @@ const S = {
   lossReason: '',
   diff: 'normal',         // easy | normal | hard (remembered between visits)
   twist: TWISTS[0],       // this mission's random landing-site twist
-  stats: { blocked: 0, fixed: 0, minRes: 100 },
+  stats: { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 },
+  plan: null,             // the surprise planned for this Sol (not shown in the briefing!)
+  surprise: null,         // the surprise that is happening now
   final: null,            // score, best score and new badges, worked out once when the mission ends
 };
 S.diff = DIFFS[store.get(KEY_DIFF, 'normal')] ? store.get(KEY_DIFF, 'normal') : 'normal';
@@ -368,7 +388,7 @@ function beginRun() {
   S.result = null;
   S.lossReason = '';
   S.final = null;
-  S.stats = { blocked: 0, fixed: 0, minRes: 100 };
+  S.stats = { blocked: 0, fixed: 0, minRes: 100, finds: 0, patched: 0 };
   startSol(1);
 }
 
@@ -381,6 +401,8 @@ function startTutorial() {
   S.res = { power: 100, oxygen: 100, food: 100 };
   S.faults = {}; S.scrubbers = true; S.patching = false; S.signal = { status: 'idle', remaining: 0 };
   S.event = null; S.sol = 1; S.timeLeft = CRISIS_SECONDS; S.research = 0;
+  S.surprise = null; S.plan = null;
+  if (scene && scene.clearDrop) scene.clearDrop();
   S.twist = TWISTS[0];
   if (scene) scene.teleportToSpawn();
   showModal({
@@ -438,6 +460,7 @@ function advanceTutorial(i) {
     body: `<div class="card"><ul>
         <li>:shield-check: Raise shields <b>before</b> the storm hits.</li>
         <li>:wrench: If something breaks: ask Earth at :broadcast: Comms, then <b>HOLD SPACE</b> at the red pad.</li>
+        <li>:meteor: <b>Surprises</b> happen with no warning. Follow the pink arrow and act fast!</li>
         <li>:scales: Check your three bars. <b>Every choice has a price.</b></li></ul></div>
       <p class="hint">Each mission has a different storm order, landing site and real NASA data. Try all three difficulties and collect every badge!</p>`,
     buttons: [{ label: ':rocket-launch: Start Sol 1', cls: 'good', onClick: closeModal }],
@@ -478,6 +501,9 @@ function startSol(n) {
   S.solar = 0;
   S.scrubCost = 0;
   S.startRes = { ...S.res };
+  if (scene && scene.clearDrop) scene.clearDrop();
+  S.surprise = null;
+  S.plan = rollSurprise(S.event);
   if (scene) scene.teleportToSpawn();
   closeModal();
   toast(`:sun-horizon: Sol ${n} begins! Visit the Comms Center for your briefing.`);
@@ -540,11 +566,103 @@ function stormArrives() {
   }
 }
 
+/* ---------------------------------------------------------------------
+   Surprises
+   --------------------------------------------------------------------- */
+function rollSurprise(ev) {
+  try {                                           // ?surprise=leak|supply|science forces one early (handy for demos)
+    const forced = new URLSearchParams(location.search).get('surprise');
+    if (SURPRISES[forced]) return { id: forced, at: 4 };
+  } catch (e) { /* no URL */ }
+  const calm = !ev.faultTerminal;                 // calm Sols always get one, so quiet days are never boring
+  const chance = calm ? 1 : clamp(0.4 + 0.03 * (S.sol - 1) + (S.diff === 'hard' ? 0.15 : S.diff === 'easy' ? -0.1 : 0), 0, 0.9);
+  if (Math.random() > chance) return null;
+  const w = calm ? [['supply', 0.35], ['science', 0.35], ['leak', 0.3]] : [['leak', 0.5], ['supply', 0.3], ['science', 0.2]];
+  let r = Math.random(), id = w[w.length - 1][0];
+  for (const [k, pr] of w) { if (r < pr) { id = k; break; } r -= pr; }
+  return { id, at: randInt(SURPRISE_MIN, SURPRISE_MAX) };
+}
+
+let bannerTimer = null;
+function banner(html, kind) {
+  const b = $('banner');
+  b.innerHTML = ic(html);
+  b.className = kind || '';
+  b.hidden = false;
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { b.hidden = true; }, 4500);
+}
+
+function spawnSurprise() {
+  const kind = S.plan.id, d = SURPRISES[kind];
+  const sp = S.surprise = { id: kind, status: 'active', lost: 0, remaining: PICKUP_SECONDS };
+  if (kind === 'leak') {
+    sp.terminal = pick(LEAK_SPOTS.filter((t) => t !== S.event.faultTerminal));
+    sp.res = LEAK_RES[sp.terminal];
+    banner(`:meteor: SURPRISE! A space rock punched a hole in ${TERMINALS[sp.terminal].name}!`, 'bad');
+    if (scene && scene.shakeScreen) scene.shakeScreen(true);
+  } else {
+    sp.point = scene && scene.pickSpot ? scene.pickSpot() : { x: 600, y: 600 };
+    if (scene && scene.spawnDrop) scene.spawnDrop(sp);
+    banner(`${d.icon} SURPRISE! ${d.banner}`, 'good');
+    if (scene && scene.shakeScreen) scene.shakeScreen(false);
+  }
+}
+
+function fixLeak() {                       // the player held SPACE on the breached pad
+  const sp = S.surprise;
+  if (!sp || sp.id !== 'leak' || sp.status !== 'active') return;
+  sp.status = 'fixed';
+  S.stats.patched++;
+  toast(':wrench: Patched! The hole is sealed.', 'good');
+}
+
+function collectSurprise() {               // the player reached the supply pod / rock
+  const sp = S.surprise;
+  if (!sp || sp.id === 'leak' || sp.status !== 'active') return;
+  sp.status = 'collected';
+  S.stats.finds++;
+  if (sp.id === 'supply') {
+    const k = Object.keys(S.res).sort((a, b) => S.res[a] - S.res[b])[0];   // it helps whatever you are lowest on
+    const got = Math.round(addRes(k, SUPPLY_GAIN[S.diff]));                // what actually fit (a bar cannot go past 100)
+    sp.gain = got >= 5 ? `The supply pod gave +${got} ${RES[k].label}, because you were lowest on it.`
+      : 'Your supplies were already full, so the pod was not needed. Grab it when you are running low!';
+    toast(got >= 5 ? `:sparkle: Supply pod! +${got} ${RES[k].label}` : ':sparkle: Supply pod! (supplies already full)', 'good');
+  } else {
+    S.research += 2;
+    sp.gain = 'The rover brought back a great rock: +2 Research stars.';
+    toast(':star: Great find! +2 Research', 'good');
+  }
+  if (scene && scene.clearDrop) scene.clearDrop();
+}
+
+function missSurprise() {
+  const sp = S.surprise;
+  if (!sp || sp.status !== 'active') return;
+  sp.status = 'missed';
+  toast(`${SURPRISES[sp.id].icon} Too late: the ${SURPRISES[sp.id].short.toLowerCase()} got buried by the wind.`, 'bad');
+  if (scene && scene.clearDrop) scene.clearDrop();
+}
+
+function surpriseLines(sp) {
+  const d = SURPRISES[sp.id];
+  if (sp.id === 'leak') {
+    const nm = TERMINALS[sp.terminal].name, lost = Math.round(sp.lost);
+    return [sp.status === 'fixed'
+      ? { ok: true, text: `:meteor: Surprise! You patched the hull breach at ${nm} yourself. It leaked ${lost} ${RES[sp.res].label} first.` }
+      : { ok: false, text: `:meteor: Surprise! The hull breach at ${nm} leaked ${lost} ${RES[sp.res].label} until morning. Next time, hold SPACE on the red pad.` }];
+  }
+  if (sp.status === 'collected') return [{ ok: true, text: `${d.icon} Surprise! ${sp.gain}` }];
+  return [{ ok: false, text: `${d.icon} Surprise! You missed the ${d.short.toLowerCase()}: the wind buried it.` }];
+}
+
 function endSol() {
   S.phase = 'night';
   S.patching = false;
   Object.keys(S.res).forEach((k) => { S.res[k] = Math.ceil(S.res[k] - 1e-9); });
   const ev = S.event;
+  const sp = S.surprise;
+  if (sp && sp.status === 'active' && sp.id !== 'leak') missSurprise();
   const lines = [];
   const stat = (k) => Object.entries(S.lost).filter(([, v]) => v >= 0.5).map(([r, v]) => `−${Math.round(v)} ${RES[r].label}`).join(', ');
 
@@ -561,6 +679,7 @@ function endSol() {
     addAll(night, -1);
     lines.push({ ok: false, text: `${ev.emoji} ${ev.faultLabel} all day. ${ev.hitText} (${stat() || 'a little'} during the day, then ${Object.entries(night).map(([k, v]) => `−${v} ${RES[k].label}`).join(', ')} overnight)` });
   }
+  if (sp) lines.push(...surpriseLines(sp));
   if (S.retracted) lines.push({ ok: false, text: ':moon: Panels stayed folded: no solar power today.' });
   else lines.push({ ok: true, text: `:sun: Solar panels made +${Math.round(S.solar)} Power.` });
   if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `:wind: Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
@@ -595,6 +714,7 @@ function endSol() {
            <table class="sum">${rows}</table>
            ${S.research ? `<p>:star: Research so far: <b>${S.research}</b></p>` : ''}
            <div class="card science"><b>:graduation-cap: Real constraint:</b> ${ev.lesson}</div>
+           ${sp ? `<div class="card science"><b>:meteor: About today's surprise:</b> ${SURPRISES[sp.id].lesson}</div>` : ''}
            <p class="hint">${S.sol >= SOL_GOAL ? 'This was your last Sol!' : `Only ${SOL_GOAL - S.sol} more Sols to go.`}</p>`,
     buttons: [next],
   });
@@ -628,6 +748,14 @@ function tick(dt) {
       if (UI.modalKind === 'comms') renderCurrentModal();
     }
   }
+  // surprises: they start with no warning, somewhere in the Sol
+  const elapsed = CRISIS_SECONDS - S.timeLeft;
+  if (S.plan && !S.surprise && elapsed >= S.plan.at) spawnSurprise();
+  const sp = S.surprise;
+  if (sp && sp.status === 'active') {
+    if (sp.id === 'leak') { const d = addRes(sp.res, -LEAK_RATE * DIFFS[S.diff].hit * dt); sp.lost -= d; }
+    else { sp.remaining -= dt; if (sp.remaining <= 0) missSurprise(); }
+  }
   S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
   if (checkLose()) return;
   if (S.timeLeft <= 0) { S.timeLeft = 0; endSol(); }
@@ -645,6 +773,14 @@ function objective() {
   if (S.phase === 'briefing') return { text: ':broadcast: Go to the Comms Center and read today\'s briefing (clock is paused)', target: 'terminal_comms' };
   if (S.phase !== 'crisis') return { text: '', target: null };
   const ev = S.event, ft = ev.faultTerminal;
+  const sp = S.surprise;
+  if (sp && sp.status === 'active') {            // a surprise is the most urgent thing, unless a storm is about to hit
+    const stormSoon = ft && !S.arrived && ev.protect && !protectedNow() && ev.arriveAt - (CRISIS_SECONDS - S.timeLeft) < 10;
+    if (!stormSoon) {
+      if (sp.id === 'leak') return { text: `:meteor: Hull breach at ${TERMINALS[sp.terminal].name}! Run there and HOLD SPACE to patch it`, target: sp.terminal };
+      return { text: `${SURPRISES[sp.id].icon} ${SURPRISES[sp.id].objective} ${Math.ceil(sp.remaining)}s`, target: null, point: sp.point };
+    }
+  }
   if (ft && !S.arrived) {
     const left = Math.max(0, Math.ceil(ev.arriveAt - (CRISIS_SECONDS - S.timeLeft)));
     if (ev.protect && !protectedNow()) {
@@ -705,6 +841,10 @@ function renderHUD() {
     if (S.shieldUp) chips += `<span class="chip ok">:shield-check: Shields up</span>`;
     if (S.retracted) chips += `<span class="chip info">:moon: Panels folded</span>`;
     if (isDusty()) chips += `<span class="chip alert">:hourglass: Dust slows you down</span>`;
+    const sp = S.surprise;
+    if (sp && sp.status === 'active') chips += sp.id === 'leak'
+      ? `<span class="chip alert">:meteor: Hull breach! Losing ${RES[sp.res].label}</span>`
+      : `<span class="chip info">${SURPRISES[sp.id].icon} ${SURPRISES[sp.id].short} ${Math.ceil(sp.remaining)}s</span>`;
   }
   if (S.phase !== 'title' && S.phase !== 'tutorial') {
     chips += `<span class="chip info">:star: Research ${S.research}</span>`;
@@ -830,7 +970,7 @@ function openComms(msg) {
       if (S.phase === 'briefing') {
         return {
           icon: t.icon, title: `Sol ${S.sol} Morning Briefing`,
-          body: `${missionCard()}${eventCard(ev)}<p class="hint">The clock starts when you press the button!</p>`,
+          body: `${missionCard()}${eventCard(ev)}<div class="card"><b>:warning: Heads up:</b> surprises can happen at any time with <b>no warning</b>. Keep your eyes open!</div><p class="hint">The clock starts when you press the button!</p>`,
           buttons: [{ label: `:timer: Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
           noClose: true,
         };
@@ -1277,6 +1417,38 @@ class MarsScene extends Phaser.Scene {
     } catch (e) { console.error('Could not clean up decoration tiles', e); }
   }
 
+  /* ---- surprise pickups: a glowing supply pod or rock somewhere on the map ---- */
+  pickSpot() {
+    const spots = (this.scenery && this.scenery.spots) || [], p = this.player;
+    const mid = spots.filter((q) => { const d = Math.hypot(q.x - p.x, q.y - p.y); return d > 280 && d < 800; });
+    const pool = mid.length ? mid : spots;
+    return pool.length ? pick(pool) : { x: this.spawn.x + 220, y: this.spawn.y + 220 };
+  }
+
+  spawnDrop(sp) {
+    this.clearDrop();
+    const { x, y } = sp.point, supply = sp.id === 'supply', tint = supply ? 0xffd23b : 0x7ad7ff;
+    const objs = [];
+    if (this.textures.exists('glow_soft')) objs.push(this.add.image(x, y, 'glow_soft').setScale(1.4).setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.4).setAlpha(0.8));
+    const ring = this.add.graphics().setDepth(2.45);
+    ring.lineStyle(7, 0x2b1458, 1).strokeCircle(x, y + 6, 38);
+    ring.lineStyle(4, tint, 1).strokeCircle(x, y + 6, 38);
+    objs.push(ring);
+    const item = this.add.image(x, y + 20, 'rts', supply ? 'scifiStructure_02.png' : 'scifiEnvironment_12.png').setOrigin(0.5, 1).setDepth(3 + (y + 20) / 10000);
+    objs.push(item);
+    const icon = this.add.image(x, y - 58, 'ic_' + (supply ? 'sparkle' : 'star')).setDisplaySize(32, 32).setDepth(45);
+    objs.push(icon);
+    this.tweens.add({ targets: ring, alpha: { from: 0.3, to: 1 }, duration: 500, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: icon, y: y - 66, duration: 480, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: item, y: y + 16, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.dropObjs = objs;
+  }
+
+  clearDrop() {
+    (this.dropObjs || []).forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
+    this.dropObjs = [];
+  }
+
   /* a brief shake when a storm reaches the base */
   shakeScreen(hard) { if (this.cameras && this.cameras.main) this.cameras.main.shake(hard ? 420 : 220, hard ? 0.006 : 0.002); }
 
@@ -1422,6 +1594,10 @@ class MarsScene extends Phaser.Scene {
     // terminal detection
     const zone = UI.modalOpen ? null : this.nearestZone();
     const faultedHere = !!(zone && S.phase === 'crisis' && S.faults[zone.id]);
+    const sp = S.surprise;
+    const leakHere = !!(zone && S.phase === 'crisis' && sp && sp.status === 'active' && sp.id === 'leak' && sp.terminal === zone.id);
+    const needsHold = faultedHere || leakHere;       // tap SPACE opens the pad, holding SPACE patches
+    if (sp && sp.status === 'active' && sp.point && S.phase === 'crisis' && !UI.modalOpen && Math.hypot(p.x - sp.point.x, p.y + 8 - sp.point.y) < 38) collectSurprise();
     if (zone && S.phase === 'tutorial') {
       const st = TUT_STEPS[T.step];
       let label = 'Follow the pink arrow first!';
@@ -1430,7 +1606,10 @@ class MarsScene extends Phaser.Scene {
       }
       this.prompt.setText(plainText(label)).setPosition(p.x, p.y - 34).setVisible(true);
     } else if (zone) {
-      const label = S.patching ? ':wrench: Patching… leak slowed!'
+      const label = leakHere && this.holding && this.holdT > 0.2 ? `Patching the hole… ${Math.min(99, Math.round(100 * this.holdT / LEAK_FIX_HOLD))}%`
+        : S.patching ? ':wrench: Patching… leak slowed!'
+        : leakHere && !faultedHere ? `${TERMINALS[zone.id].name} has a HOLE!
+TAP SPACE: open  ·  HOLD SPACE: patch it`
         : faultedHere ? `${TERMINALS[zone.id].name} is BROKEN!
 TAP SPACE: open  ·  HOLD SPACE: patch the leak`
         : `Press SPACE to use ${TERMINALS[zone.id].name}`;
@@ -1447,15 +1626,16 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
       this.holding = false; S.patching = false;       // training has its own SPACE handling (above)
     } else {
       if (spaceDown && zone && S.phase !== 'night' && S.phase !== 'over') {
-        if (faultedHere) { this.holding = true; this.holdT = 0; }   // tap = open, hold = patch
+        if (needsHold) { this.holding = true; this.holdT = 0; }   // tap = open, hold = patch
         else openTerminal(zone.id);
       }
       if (this.holding) {
-        if (this.space.isDown && faultedHere) {
+        if (this.space.isDown && needsHold) {
           this.holdT += dt;
-          S.patching = this.holdT >= HOLD_SECONDS;
+          S.patching = faultedHere && this.holdT >= HOLD_SECONDS;
+          if (leakHere && this.holdT >= LEAK_FIX_HOLD) fixLeak();
         } else {
-          if (spaceUp && faultedHere && this.holdT < HOLD_SECONDS) openTerminal(zone.id);
+          if (spaceUp && needsHold && this.holdT < HOLD_SECONDS) openTerminal(zone.id);
           this.holding = false; S.patching = false;
         }
       } else S.patching = false;
@@ -1466,17 +1646,19 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
     const obj = objective();
     for (const z of this.zones) {
       const practiceBroken = S.phase === 'tutorial' && T.started && TUT_STEPS[T.step] && TUT_STEPS[T.step].hold && TUT_STEPS[T.step].target === z.id;
-      z.alert.setVisible(!!S.faults[z.id] || !!practiceBroken).setAlpha(0.35 + 0.65 * pulse);
+      z.alert.setVisible(!!S.faults[z.id] || !!practiceBroken || !!(S.surprise && S.surprise.status === 'active' && S.surprise.id === 'leak' && S.surprise.terminal === z.id)).setAlpha(0.35 + 0.65 * pulse);
       z.base.setAlpha(obj.target === z.id ? 0.5 + 0.5 * pulse : 1);
     }
     const tz = this.zones.find((z) => z.id === obj.target);
-    if (tz) this.arrow.setVisible(true).setPosition(tz.rect.centerX, tz.rect.top - 18 + Math.sin(time / 150) * 5);
+    // where is the target? a pad, or a spot on the ground (supply pod / rock find)
+    const tgt = tz ? { x: tz.rect.centerX, y: tz.rect.centerY, top: tz.rect.top - 18 } : obj.point ? { x: obj.point.x, y: obj.point.y, top: obj.point.y - 76 } : null;
+    if (tgt) this.arrow.setVisible(true).setPosition(tgt.x, tgt.top + Math.sin(time / 150) * 5);
     else this.arrow.setVisible(false);
 
     // guide arrow toward the target, from wherever the astronaut is
     this.guideDots.clear();
-    const gx = tz ? tz.rect.centerX - p.x : 0, gy = tz ? tz.rect.centerY - p.y : 0, gd = Math.hypot(gx, gy);
-    if (tz && !UI.modalOpen && gd > 110) {
+    const gx = tgt ? tgt.x - p.x : 0, gy = tgt ? tgt.y - p.y : 0, gd = Math.hypot(gx, gy);
+    if (tgt && !UI.modalOpen && gd > 110) {
       const ux = gx / gd, uy = gy / gd, push = 46 + Math.sin(time / 170) * 4;
       this.guide.setVisible(true).setPosition(p.x + ux * push, p.y - 4 + uy * push).setRotation(Math.atan2(uy, ux) - Math.PI / 2).setScale(0.55 + Math.sin(time / 170) * 0.04);
       const reach = Math.min(gd - 60, 340);
@@ -1493,6 +1675,7 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
    Boot
    --------------------------------------------------------------------- */
 window.addEventListener('error', (e) => { if (!scene) fatal(e.message); });
+if (/[?&]debug/.test(location.search)) window.__mars = { S, T, UI, readBriefing, closeModal, startSol, endSol, tick, get scene() { return scene; } };   // for testing only
 document.querySelectorAll('.ico, #skipTut').forEach((el) => { el.innerHTML = ic(el.textContent); });   // static HUD icons
 $('skipTut').addEventListener('click', (e) => { e.currentTarget.blur(); skipTutorial(); });
 
