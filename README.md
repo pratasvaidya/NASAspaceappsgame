@@ -4,13 +4,7 @@ A 2D browser game for ages 7 to 12. You are the lone astronaut at a Mars outpost
 
 ## Run it
 
-Browsers block local files from loading each other, so use a tiny local server:
-
-```
-python -m http.server 8000
-```
-
-Then open <http://localhost:8000>. No account, no install, no build step. (It needs internet for Phaser and the Fredoka font, and for live NASA data. Without internet it still plays using a saved copy of real data.)
+TEMPORARY GIT SITE: https://pratasvaidya.github.io/NASAspaceappsgame/
 
 Controls: WASD or arrow keys to walk (you run about 35% faster on the paved pathways than on bare ground), SPACE to use a pad. **Tap** SPACE to open a terminal. **Hold** SPACE at a broken terminal to patch the leak.
 
