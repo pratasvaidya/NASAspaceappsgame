@@ -9,7 +9,7 @@
    The shared 'DEMO_KEY' only allows a few requests per hour for everyone on the same network (a classroom or a
    hackathon venue can use it up in minutes). Get your own free key in one minute at https://api.nasa.gov and paste
    it here. You can also add ?key=YOUR_KEY to the address. */
-const NASA_API_KEY = 'DEMO_KEY';
+const NASA_API_KEY = 'wPRdrwN7DD6rgpJhqWwGC8D8BRQK6bqRLTzgzfPH';
 
 const SOL_GOAL = 10;          // finish Sol 10 to win
 const CRISIS_SECONDS = 90;
