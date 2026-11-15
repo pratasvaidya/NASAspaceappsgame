@@ -11,7 +11,6 @@ const SIGNAL_SECONDS = 25;    // "25-minute" Earth round trip, shrunk to 25 seco
 const MAX_RES = 100;
 const BASELINE = { oxygen: 15, food: 10, power: 10 };
 const RESET_COST = { power: 10 };
-const WARN_SECONDS = 15;
 const LOW_RES = 25;
 
 const SHIELD_COST = 30;       // 30 Power: roughly a third of what the base makes in a day
@@ -878,6 +877,17 @@ const hudCache = {};
 function setText(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = ic(v); hudCache[key] = v; } }   // :name: becomes an icon picture
 function setHtml(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = ic(v); hudCache[key] = v; } }
 
+/* what the clock pill says during a Sol: only call it a crisis when something is actually broken */
+function crisisLabel(paused) {
+  if (paused) return 'Paused';
+  const ev = S.event, sp = S.surprise;
+  if (activeFault()) return 'Crisis';
+  if (sp && sp.status === 'active') return 'Surprise!';
+  if (!ev.faultTerminal) return 'Calm Sol';
+  if (!S.arrived) return 'Trouble Coming';
+  return S.blocked ? 'Blocked!' : 'All Clear';
+}
+
 function renderHUD() {
   $('hud').hidden = S.phase === 'title';
   $('skipTut').hidden = S.phase !== 'tutorial';
@@ -886,11 +896,8 @@ function renderHUD() {
   setText($('solOf'), 'solof', training ? 'practice' : `of ${SOL_GOAL}`);
   const paused = S.phase !== 'crisis' || UI.modalKind === 'archives';
   setText($('clock'), 'clock', training ? ':graduation-cap:' : S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
-  setText($('phaseLabel'), 'phase', training ? 'No rush' : S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? (paused ? 'Paused' : 'Active Crisis') : 'Night');
-  const warn = S.phase === 'crisis' && S.timeLeft <= WARN_SECONDS;
+  setText($('phaseLabel'), 'phase', training ? 'No rush' : S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? crisisLabel(paused) : 'Night');
   $('clockBox').classList.toggle('paused', paused);
-  $('clockBox').classList.toggle('warn', warn);
-  document.body.classList.toggle('warning', warn);
 
   document.querySelectorAll('.bar').forEach((bar) => {
     const k = bar.dataset.res, v = S.res[k];
@@ -898,6 +905,8 @@ function renderHUD() {
     setText(bar.querySelector('.val'), 'v' + k, String(Math.ceil(v - 1e-9)));
     bar.classList.toggle('low', v <= LOW_RES);
   });
+  // the red flashing border means one of the big three is running low (and nothing else)
+  document.body.classList.toggle('warning', S.phase !== 'title' && S.phase !== 'tutorial' && S.phase !== 'over' && Object.values(S.res).some((v) => v <= LOW_RES));
 
   const obj = objective();
   $('objective').hidden = !obj.text;

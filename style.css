@@ -41,8 +41,6 @@ html, body { margin: 0; height: 100%; background: #c1440e; color: var(--ink); ov
 .pill.clock { background: var(--yellow); }
 .pill.clock span { color: var(--white); font-variant-numeric: tabular-nums; }
 .pill.clock.paused { background: #c9c3d6; }
-.pill.clock.warn { background: var(--red); animation: wobble .35s infinite alternate; }
-.pill.clock.warn small { color: var(--white); }
 
 .bars { display: grid; gap: 6px; flex: 1 1 280px; max-width: 440px; }
 .bar { display: grid; grid-template-columns: 44px 1fr; gap: 6px; align-items: center; }
