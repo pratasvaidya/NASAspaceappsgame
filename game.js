@@ -1224,6 +1224,9 @@ class MarsScene extends Phaser.Scene {
       stroke: '#2b1458', strokeThickness: 7, align: 'center', padding: { x: 4, y: 4 },
     }).setOrigin(0.5, 1).setDepth(50).setVisible(false);
     this.arrow = this.add.image(0, 0, 'ic_arrow-fat-down').setScale(0.5).setOrigin(0.5, 1).setDepth(40).setVisible(false);
+    // guide arrow: rides next to the astronaut and always points straight at the current target, with a trail of dots
+    this.guide = this.add.image(0, 0, 'ic_arrow-fat-down').setScale(0.55).setDepth(45).setVisible(false);
+    this.guideDots = this.add.graphics().setDepth(44);
 
     this.ready = true;
     $('loading').hidden = true;
@@ -1469,6 +1472,20 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
     const tz = this.zones.find((z) => z.id === obj.target);
     if (tz) this.arrow.setVisible(true).setPosition(tz.rect.centerX, tz.rect.top - 18 + Math.sin(time / 150) * 5);
     else this.arrow.setVisible(false);
+
+    // guide arrow toward the target, from wherever the astronaut is
+    this.guideDots.clear();
+    const gx = tz ? tz.rect.centerX - p.x : 0, gy = tz ? tz.rect.centerY - p.y : 0, gd = Math.hypot(gx, gy);
+    if (tz && !UI.modalOpen && gd > 110) {
+      const ux = gx / gd, uy = gy / gd, push = 46 + Math.sin(time / 170) * 4;
+      this.guide.setVisible(true).setPosition(p.x + ux * push, p.y - 4 + uy * push).setRotation(Math.atan2(uy, ux) - Math.PI / 2).setScale(0.55 + Math.sin(time / 170) * 0.04);
+      const reach = Math.min(gd - 60, 340);
+      for (let d = 86, i = 0; d < reach; d += 28, i++) {
+        const a = 0.9 * (1 - (d - 86) / Math.max(1, reach - 86)) + 0.1;
+        this.guideDots.fillStyle(0x2b1458, a).fillCircle(p.x + ux * d, p.y + 8 + uy * d, 5.5);
+        this.guideDots.fillStyle(0xff5fa8, a).fillCircle(p.x + ux * d, p.y + 8 + uy * d, 3.6);
+      }
+    } else this.guide.setVisible(false);
   }
 }
 
