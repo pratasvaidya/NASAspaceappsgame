@@ -29,63 +29,66 @@ const ESCALATE = 0.04;        // storms get 4% stronger every Sol
 
 /* Replayability: three difficulties, a random "mission twist" every run, a score, and badges. */
 const DIFFS = {
-  easy:   { name: 'Cadet',     icon: '🌱', blurb: 'Gentler storms and easier nights',  hit: 0.75, night: 0.8, start: 100, mult: 0.8 },
-  normal: { name: 'Astronaut', icon: '🚀', blurb: 'The real mission',                         hit: 1,    night: 1,   start: 100, mult: 1 },
-  hard:   { name: 'Commander', icon: '🔥', blurb: 'Stronger storms, a hungrier base, fewer supplies', hit: 1.25, night: 1.1, start: 90, mult: 1.3 },
+  easy:   { name: 'Cadet',     icon: ':plant:', blurb: 'Gentler storms and easier nights',  hit: 0.75, night: 0.8, start: 100, mult: 0.8 },
+  normal: { name: 'Astronaut', icon: ':rocket-launch:', blurb: 'The real mission',                         hit: 1,    night: 1,   start: 100, mult: 1 },
+  hard:   { name: 'Commander', icon: ':fire:', blurb: 'Stronger storms, a hungrier base, fewer supplies', hit: 1.25, night: 1.1, start: 90, mult: 1.3 },
 };
 const TWISTS = [
-  { id: 'plain',  icon: '📍', name: 'Standard Landing Site', text: 'A normal landing site. No surprises!', mods: {} },
-  { id: 'sunny',  icon: '☀️', name: 'Sunny Plateau',  text: 'Solar panels make 60% more Power, but you landed with less Food.', mods: { solar: 1.6, start: { food: -20 } } },
-  { id: 'garden', icon: '🌱', name: 'Garden Dome',    text: 'Crop Incubators grow 50% more Food, but you landed with less Oxygen.', mods: { grow: 1.5, start: { oxygen: -20 } } },
-  { id: 'shield', icon: '🛡️', name: 'Shield Ridge',   text: 'Shields cost less Power (21 instead of 30), but you landed with less Power.', mods: { shield: 0.7, start: { power: -15 } } },
-  { id: 'dusty',  icon: '🌪️', name: 'Dusty Valley',   text: 'Dust scrubbers use twice the Power, but panels you sweep give 50% more Power.', mods: { scrub: 2, sweep: 1.5 } },
+  { id: 'plain',  icon: ':map-pin:', name: 'Standard Landing Site', text: 'A normal landing site. No surprises!', mods: {} },
+  { id: 'sunny',  icon: ':sun:', name: 'Sunny Plateau',  text: 'Solar panels make 60% more Power, but you landed with less Food.', mods: { solar: 1.6, start: { food: -20 } } },
+  { id: 'garden', icon: ':plant:', name: 'Garden Dome',    text: 'Crop Incubators grow 50% more Food, but you landed with less Oxygen.', mods: { grow: 1.5, start: { oxygen: -20 } } },
+  { id: 'shield', icon: ':shield-check:', name: 'Shield Ridge',   text: 'Shields cost less Power (21 instead of 30), but you landed with less Power.', mods: { shield: 0.7, start: { power: -15 } } },
+  { id: 'dusty',  icon: ':tornado:', name: 'Dusty Valley',   text: 'Dust scrubbers use twice the Power, but panels you sweep give 50% more Power.', mods: { scrub: 2, sweep: 1.5 } },
 ];
 const BADGES = [
-  { id: 'survivor',  icon: '🏆', name: 'Mars Survivor',       text: 'Finish all 10 Sols',                       test: (s) => s.result === 'won' },
-  { id: 'dodger',    icon: '🛡️', name: 'Storm Dodger',        text: 'Block 3 storms in one mission',            test: (s) => s.stats.blocked >= 3 },
-  { id: 'fixit',     icon: '🔧', name: 'Fix-It Pro',          text: 'Reset 3 broken systems in one mission',    test: (s) => s.stats.fixed >= 3 },
-  { id: 'scientist', icon: '🔬', name: 'Junior Scientist',    text: 'Collect 5 ⭐ research in one mission',      test: (s) => s.research >= 5 },
-  { id: 'calm',      icon: '😎', name: 'Cool Under Pressure', text: 'Win without any bar dropping under 25',    test: (s) => s.result === 'won' && s.stats.minRes >= 25 },
-  { id: 'commander', icon: '🔥', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
+  { id: 'survivor',  icon: ':trophy:', name: 'Mars Survivor',       text: 'Finish all 10 Sols',                       test: (s) => s.result === 'won' },
+  { id: 'dodger',    icon: ':shield-check:', name: 'Storm Dodger',        text: 'Block 3 storms in one mission',            test: (s) => s.stats.blocked >= 3 },
+  { id: 'fixit',     icon: ':wrench:', name: 'Fix-It Pro',          text: 'Reset 3 broken systems in one mission',    test: (s) => s.stats.fixed >= 3 },
+  { id: 'scientist', icon: ':microscope:', name: 'Junior Scientist',    text: 'Collect 5 :star: research in one mission',      test: (s) => s.research >= 5 },
+  { id: 'calm',      icon: ':snowflake:', name: 'Cool Under Pressure', text: 'Win without any bar dropping under 25',    test: (s) => s.result === 'won' && s.stats.minRes >= 25 },
+  { id: 'commander', icon: ':fire:', name: 'Commander',           text: 'Win a mission on Commander difficulty',    test: (s) => s.result === 'won' && s.diff === 'hard' },
 ];
 const KEY_DIFF = 'marsOutpost.diff.v1', KEY_BEST = 'marsOutpost.best.v1', KEY_BADGES = 'marsOutpost.badges.v1', KEY_TUT = 'marsOutpost.tutorial.v1';
 
 /* The training: under a minute, learn by doing. Each step points at a pad with the pink arrow. */
 const TUT_STEPS = [
-  { target: 'terminal_comms', text: 'Walk to the 📡 Comms pad and press SPACE',
-    icon: '📡', title: 'Comms Center',
+  { target: 'terminal_comms', text: 'Walk to the :broadcast: Comms pad and press SPACE',
+    icon: ':broadcast:', title: 'Comms Center',
     body: `<p>Every Sol starts here. You get a <b>real NASA space-weather</b> news report that says <b>which storm is coming and when</b>.</p>
            <p>The Sol clock only starts when <i>you</i> press Start.</p>` },
-  { target: 'terminal_shields', text: 'Run up to the 🛡️ Shields pad (north) and press SPACE',
-    icon: '🛡️', title: 'North Shields',
+  { target: 'terminal_shields', text: 'Run up to the :shield-check: Shields pad (north) and press SPACE',
+    icon: ':shield-check:', title: 'North Shields',
     body: `<p>Shields block a storm, but only if you raise them <b>before</b> it hits.</p>
-           <div class="chips"><span class="chip cost">−30 ⚡ Power</span></div>
-           <p><b>Nothing is free!</b> Watch your ⚡ Power bar drop when you press Got it.</p>`,
-    after: () => { S.res.power = 70; toast('⚡ See that? Power dropped by 30. Everything has a price!', 'bad'); } },
-  { target: 'terminal_lifesupport', hold: true, text: '💨 Life Support is broken! Run west and HOLD SPACE for 2 seconds',
-    icon: '🔧', title: 'You patched it!',
+           <div class="chips"><span class="chip cost">−30 :lightning: Power</span></div>
+           <p><b>Nothing is free!</b> Watch your :lightning: Power bar drop when you press Got it.</p>`,
+    after: () => { S.res.power = 70; toast(':lightning: See that? Power dropped by 30. Everything has a price!', 'bad'); } },
+  { target: 'terminal_lifesupport', hold: true, text: ':wind: Life Support is broken! Run west and HOLD SPACE for 2 seconds',
+    icon: ':wrench:', title: 'You patched it!',
     body: `<p>When a storm breaks something, supplies <b>leak out</b>. Holding SPACE on the red pad <b>slows the leak</b>.</p>
-           <p>Then ask Earth for a reset code at 📡 Comms. Real messages take about <b>25 minutes</b> each way, so in this game it takes <b>25 seconds</b>. Hold on until it arrives!</p>` },
+           <p>Then ask Earth for a reset code at :broadcast: Comms. Real messages take about <b>25 minutes</b> each way, so in this game it takes <b>25 seconds</b>. Hold on until it arrives!</p>` },
 ];
 
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
 const TILES_PATH = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.png';
+const ATLAS_XML = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.xml';
+const WORLD_ICONS = ['broadcast', 'books', 'shield-check', 'plant', 'wind', 'door', 'warning', 'arrow-fat-down', 'house'];
+const iconOf = (token) => String(token).replace(/:/g, '');   // ':broadcast:' -> 'broadcast'
 
 const FONT = 'Fredoka, "Arial Rounded MT Bold", "Comic Sans MS", sans-serif';
 
 const RES = {
-  power:  { label: 'Power',  icon: '⚡' },
-  oxygen: { label: 'Oxygen', icon: '💨' },
-  food:   { label: 'Food',   icon: '🍎' },
+  power:  { label: 'Power',  icon: ':lightning:' },
+  oxygen: { label: 'Oxygen', icon: ':wind:' },
+  food:   { label: 'Food',   icon: ':orange:' },
 };
 
 const TERMINALS = {
-  terminal_comms:       { name: 'Comms Center',      icon: '📡', color: 0x4fc3f7 },
-  terminal_archives:    { name: 'NASA Archives',     icon: '📚', color: 0xc792ea },
-  terminal_shields:     { name: 'North Shields',     icon: '🛡️', color: 0x7aa2ff },
-  terminal_hydroponics: { name: 'East Hydroponics',  icon: '🌱', color: 0x7ddc5c },
-  terminal_lifesupport: { name: 'West Life Support', icon: '💨', color: 0x66e0d0 },
-  terminal_airlock:     { name: 'South Airlock',     icon: '🚪', color: 0xffb347 },
+  terminal_comms:       { name: 'Comms Center',      icon: ':broadcast:', color: 0x4fc3f7 },
+  terminal_archives:    { name: 'NASA Archives',     icon: ':books:', color: 0xc792ea },
+  terminal_shields:     { name: 'North Shields',     icon: ':shield-check:', color: 0x7aa2ff },
+  terminal_hydroponics: { name: 'East Hydroponics',  icon: ':plant:', color: 0x7ddc5c },
+  terminal_lifesupport: { name: 'West Life Support', icon: ':wind:', color: 0x66e0d0 },
+  terminal_airlock:     { name: 'South Airlock',     icon: ':door:', color: 0xffb347 },
 };
 
 /* Every action has a price. type 'once' = once per Sol, 'toggle' = switch on/off (costs/benefits over time). */
@@ -114,7 +117,7 @@ const ACTIONS = {
       cost: { oxygen: 10 }, gain: { power: 30 }, done: 'The panels are shiny and soaking up sunlight!' },
     { id: 'samples', type: 'once', name: 'Collect Rock Samples (Research)',
       blurb: 'A science trip outside. It uses oxygen and gives no supplies, but scientists on Earth love it.',
-      cost: { oxygen: 15 }, gain: {}, stars: 1, done: 'Great science! +1 ⭐ Research.' },
+      cost: { oxygen: 15 }, gain: {}, stars: 1, done: 'Great science! +1 :star: Research.' },
   ],
 };
 
@@ -137,16 +140,16 @@ function fatal(msg) {
   $('loading').hidden = true;
   const f = $('fatal');
   f.hidden = false;
-  f.innerHTML = `<div>😢 Oops! The game could not start.<br><small>${msg}</small><br><br>
+  f.innerHTML = ic(`<div>:heart-break: Oops! The game could not start.<br><small>${msg}</small><br><br>
     If you opened <code>index.html</code> by double-clicking, start a local server instead:<br>
-    <code>python -m http.server 8000</code> then open <code>http://localhost:8000</code></div>`;
+    <code>python -m http.server 8000</code> then open <code>http://localhost:8000</code></div>`);
 }
 
 const costChips = (cost, gain, stars, extra) =>
   `<div class="chips">` +
   Object.entries(cost || {}).map(([k, v]) => `<span class="chip cost">−${v} ${RES[k].icon} ${RES[k].label}</span>`).join('') +
   Object.entries(gain || {}).map(([k, v]) => `<span class="chip gain">+${v} ${RES[k].icon} ${RES[k].label}</span>`).join('') +
-  (stars ? `<span class="chip gain">+${stars} ⭐ Research</span>` : '') +
+  (stars ? `<span class="chip gain">+${stars} :star: Research</span>` : '') +
   (extra || '') + `</div>`;
 
 /* ---------------------------------------------------------------------
@@ -381,16 +384,16 @@ function startTutorial() {
   S.twist = TWISTS[0];
   if (scene) scene.teleportToSpawn();
   showModal({
-    kind: 'tutorial', icon: '🎓', title: 'Mars Training',
+    kind: 'tutorial', icon: ':graduation-cap:', title: 'Mars Training',
     body: `<p>Hi, astronaut! You run a tiny base on Mars. Keep these three bars above zero for <b>${SOL_GOAL} Sols</b> (Mars days):</p>
-      <div class="chips"><span class="chip gain">⚡ Power</span><span class="chip gain">💨 Oxygen</span><span class="chip gain">🍎 Food</span></div>
+      <div class="chips"><span class="chip gain">:lightning: Power</span><span class="chip gain">:wind: Oxygen</span><span class="chip gain">:orange: Food</span></div>
       <div class="card"><b>3 things to know:</b><ul>
-        <li>☀️ Space <b>storms</b> break stuff.</li>
-        <li>💰 <b>Everything costs something.</b></li>
-        <li>📡 Earth answers <b>slowly</b>.</li></ul></div>
-      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys and follow the <b style="color:#ff5fa8">pink arrow ▼</b>.</p>`,
+        <li>:sun: Space <b>storms</b> break stuff.</li>
+        <li>:coins: <b>Everything costs something.</b></li>
+        <li>:broadcast: Earth answers <b>slowly</b>.</li></ul></div>
+      <p>Training takes <b>under a minute</b>. Walk with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys and follow the <b style="color:#ff5fa8">pink arrow</b> :arrow-fat-down:.</p>`,
     buttons: [
-      { label: "Let's go! ▶", cls: 'good', onClick: closeModal },
+      { label: "Let's go! :play:", cls: 'good', onClick: closeModal },
       { label: 'Skip training', cls: 'secondary', onClick: skipTutorial },
     ],
     noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to start',
@@ -411,14 +414,14 @@ function finishTutorial(auto) {
   store.set(KEY_TUT, true);
   closeModal();
   beginRun();
-  if (auto) toast('🎓 Training done! Good luck, astronaut!', 'good');
+  if (auto) toast(':graduation-cap: Training done! Good luck, astronaut!', 'good');
 }
 
 function openTutorialCard(i) {
   const st = TUT_STEPS[i];
   showModal({
     kind: 'tutorial', icon: st.icon, title: st.title, body: st.body,
-    buttons: [{ label: 'Got it! ▶', cls: 'good', onClick: closeModal }],
+    buttons: [{ label: 'Got it! :play:', cls: 'good', onClick: closeModal }],
     noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to continue',
     onClose: () => advanceTutorial(i),
   });
@@ -431,13 +434,13 @@ function advanceTutorial(i) {
   T.step++; T.hold = 0;
   if (T.step < TUT_STEPS.length) return;
   showModal({
-    kind: 'tutorial', icon: '🚀', title: "You're ready!",
+    kind: 'tutorial', icon: ':rocket-launch:', title: "You're ready!",
     body: `<div class="card"><ul>
-        <li>🛡️ Raise shields <b>before</b> the storm hits.</li>
-        <li>🔧 If something breaks: ask Earth at 📡 Comms, then <b>HOLD SPACE</b> at the red pad.</li>
-        <li>⚖️ Check your three bars. <b>Every choice has a price.</b></li></ul></div>
+        <li>:shield-check: Raise shields <b>before</b> the storm hits.</li>
+        <li>:wrench: If something breaks: ask Earth at :broadcast: Comms, then <b>HOLD SPACE</b> at the red pad.</li>
+        <li>:scales: Check your three bars. <b>Every choice has a price.</b></li></ul></div>
       <p class="hint">Each mission has a different storm order, landing site and real NASA data. Try all three difficulties and collect every badge!</p>`,
-    buttons: [{ label: '🚀 Start Sol 1', cls: 'good', onClick: closeModal }],
+    buttons: [{ label: ':rocket-launch: Start Sol 1', cls: 'good', onClick: closeModal }],
     noClose: true, keyHint: 'Press <kbd>SPACE</kbd> to start',
     onClose: () => { if (T.active) finishTutorial(false); },
   });
@@ -477,14 +480,14 @@ function startSol(n) {
   S.startRes = { ...S.res };
   if (scene) scene.teleportToSpawn();
   closeModal();
-  toast(`🌅 Sol ${n} begins! Visit the Comms Center for your briefing.`);
+  toast(`:sun-horizon: Sol ${n} begins! Visit the Comms Center for your briefing.`);
 }
 
 function readBriefing() {
   const ev = S.event;
   S.phase = 'crisis';
-  if (ev.bonus) { addAll(ev.bonus, 1); S.startRes = { ...S.res }; toast(`☀️ ${ev.bonusText}`, 'good'); }
-  else toast('⏱️ The 90-second clock is running. Protect the base!', 'bad');
+  if (ev.bonus) { addAll(ev.bonus, 1); S.startRes = { ...S.res }; toast(`:sun: ${ev.bonusText}`, 'good'); }
+  else toast(':timer: The 90-second clock is running. Protect the base!', 'bad');
 }
 
 const addRes = (k, v) => { const before = S.res[k]; S.res[k] = clamp(before + v, 0, MAX_RES); return S.res[k] - before; };
@@ -516,13 +519,21 @@ function checkLose() {
   return false;
 }
 
+/* what the world should look like right now (drives the night tint, dust storm haze and lamp glow) */
+function currentMood() {
+  if (S.phase === 'night') return 'night';
+  if (S.phase === 'crisis' && S.event && S.event.kind === 'dust' && S.arrived) return 'storm';
+  return 'day';
+}
+
 function stormArrives() {
   const ev = S.event;
   S.arrived = true;
+  if (scene && scene.shakeScreen) scene.shakeScreen(!protectedNow());
   if (protectedNow()) {
     S.blocked = true;
     S.stats.blocked++;
-    toast(ev.protect === 'shields' ? '🛡️ The shields blocked the storm!' : '🌙 Panels were folded away. Dust missed them!', 'good');
+    toast(ev.protect === 'shields' ? ':shield-check: The shields blocked the storm!' : ':moon: Panels were folded away. Dust missed them!', 'good');
   } else {
     S.faults[ev.faultTerminal] = true;
     toast(`${ev.emoji} It hit! ${ev.faultLabel}. Ask Earth for help!`, 'bad');
@@ -538,11 +549,11 @@ function endSol() {
   const stat = (k) => Object.entries(S.lost).filter(([, v]) => v >= 0.5).map(([r, v]) => `−${Math.round(v)} ${RES[r].label}`).join(', ');
 
   if (!ev.faultTerminal) {
-    lines.push({ ok: true, text: '☀️ A calm Sol, with no storm damage.' });
+    lines.push({ ok: true, text: ':sun: A calm Sol, with no storm damage.' });
   } else if (S.blocked) {
-    lines.push({ ok: true, text: `${ev.protect === 'shields' ? '🛡️ Your shields' : '🌙 Folding the solar panels'} stopped "${ev.title}" completely!` });
+    lines.push({ ok: true, text: `${ev.protect === 'shields' ? ':shield-check: Your shields' : ':moon: Folding the solar panels'} stopped "${ev.title}" completely!` });
   } else if (!S.faults[ev.faultTerminal]) {
-    lines.push({ ok: true, text: `✅ You fixed ${TERMINALS[ev.faultTerminal].name}.${stat() ? ' Damage while broken: ' + stat() + '.' : ''}` });
+    lines.push({ ok: true, text: `:check-circle: You fixed ${TERMINALS[ev.faultTerminal].name}.${stat() ? ' Damage while broken: ' + stat() + '.' : ''}` });
   } else {
     // still broken at night: it keeps leaking until morning
     const night = {};
@@ -550,13 +561,13 @@ function endSol() {
     addAll(night, -1);
     lines.push({ ok: false, text: `${ev.emoji} ${ev.faultLabel} all day. ${ev.hitText} (${stat() || 'a little'} during the day, then ${Object.entries(night).map(([k, v]) => `−${v} ${RES[k].label}`).join(', ')} overnight)` });
   }
-  if (S.retracted) lines.push({ ok: false, text: '🌙 Panels stayed folded: no solar power today.' });
-  else lines.push({ ok: true, text: `☀️ Solar panels made +${Math.round(S.solar)} Power.` });
-  if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `💨 Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
+  if (S.retracted) lines.push({ ok: false, text: ':moon: Panels stayed folded: no solar power today.' });
+  else lines.push({ ok: true, text: `:sun: Solar panels made +${Math.round(S.solar)} Power.` });
+  if (S.scrubCost >= 0.5) lines.push({ ok: false, text: `:wind: Dust scrubbers used ${Math.round(S.scrubCost)} Power.` });
 
   const night0 = baseline();
   addAll(night0, -1);
-  lines.push({ ok: false, text: `🌙 Night-time life support: −${night0.oxygen} Oxygen, −${night0.food} Food, −${night0.power} Power` });
+  lines.push({ ok: false, text: `:moon: Night-time life support: −${night0.oxygen} Oxygen, −${night0.food} Food, −${night0.power} Power` });
   S.stats.minRes = Math.min(S.stats.minRes, ...Object.values(S.res));
 
   const dead = Object.keys(S.res).find((k) => S.res[k] <= 0);
@@ -567,9 +578,9 @@ function endSol() {
     next = { label: 'Oh no…', cls: 'secondary', onClick: () => { S.phase = 'over'; showEndModal(); } };
   } else if (S.sol >= SOL_GOAL) {
     S.result = 'won';
-    next = { label: '🎉 Finish the mission!', cls: 'good', onClick: () => { S.phase = 'over'; showEndModal(); } };
+    next = { label: ':confetti: Finish the mission!', cls: 'good', onClick: () => { S.phase = 'over'; showEndModal(); } };
   } else {
-    next = { label: `🌅 Start Sol ${S.sol + 1}`, cls: 'good', onClick: () => startSol(S.sol + 1) };
+    next = { label: `:sun-horizon: Start Sol ${S.sol + 1}`, cls: 'good', onClick: () => startSol(S.sol + 1) };
   }
 
   const rows = Object.keys(RES).map((k) => {
@@ -579,11 +590,11 @@ function endSol() {
   }).join('');
 
   showModal({
-    kind: 'night', closable: false, icon: '🌙', title: `Sol ${S.sol} Summary`,
+    kind: 'night', closable: false, icon: ':moon:', title: `Sol ${S.sol} Summary`,
     body: `<ul>${lines.map((l) => `<li class="${l.ok ? 'up' : ''}">${l.text}</li>`).join('')}</ul>
            <table class="sum">${rows}</table>
-           ${S.research ? `<p>⭐ Research so far: <b>${S.research}</b></p>` : ''}
-           <div class="card science"><b>🎓 Real constraint:</b> ${ev.lesson}</div>
+           ${S.research ? `<p>:star: Research so far: <b>${S.research}</b></p>` : ''}
+           <div class="card science"><b>:graduation-cap: Real constraint:</b> ${ev.lesson}</div>
            <p class="hint">${S.sol >= SOL_GOAL ? 'This was your last Sol!' : `Only ${SOL_GOAL - S.sol} more Sols to go.`}</p>`,
     buttons: [next],
   });
@@ -613,7 +624,7 @@ function tick(dt) {
     S.signal.remaining -= dt;
     if (S.signal.remaining <= 0) {
       S.signal = { status: 'ready', remaining: 0 };
-      toast('📡 Earth replied! The reset code is ready.', 'good');
+      toast(':broadcast: Earth replied! The reset code is ready.', 'good');
       if (UI.modalKind === 'comms') renderCurrentModal();
     }
   }
@@ -629,34 +640,34 @@ function objective() {
   if (S.phase === 'tutorial') {
     const st = TUT_STEPS[T.step];
     if (!T.started || !st) return { text: '', target: null };
-    return { text: `🎓 Training ${T.step + 1}/${TUT_STEPS.length} · ${st.text}`, target: st.target };
+    return { text: `:graduation-cap: Training ${T.step + 1}/${TUT_STEPS.length} · ${st.text}`, target: st.target };
   }
-  if (S.phase === 'briefing') return { text: '📡 Go to the Comms Center and read today\'s briefing (clock is paused)', target: 'terminal_comms' };
+  if (S.phase === 'briefing') return { text: ':broadcast: Go to the Comms Center and read today\'s briefing (clock is paused)', target: 'terminal_comms' };
   if (S.phase !== 'crisis') return { text: '', target: null };
   const ev = S.event, ft = ev.faultTerminal;
   if (ft && !S.arrived) {
     const left = Math.max(0, Math.ceil(ev.arriveAt - (CRISIS_SECONDS - S.timeLeft)));
     if (ev.protect && !protectedNow()) {
-      return { text: `⏰ ${ev.emoji} Arrives in ${left}s! ${ev.protect === 'shields' ? `Raise the shields (−${actionCost({ id: 'shield' }).power} ⚡)` : 'Retract the solar panels'} in the North Wing`, target: 'terminal_shields' };
+      return { text: `:alarm: ${ev.emoji} Arrives in ${left}s! ${ev.protect === 'shields' ? `Raise the shields (−${actionCost({ id: 'shield' }).power} :lightning:)` : 'Retract the solar panels'} in the North Wing`, target: 'terminal_shields' };
     }
-    if (ev.protect) return { text: `✅ Protected! Brace for it… ${left}s`, target: null };
-    return { text: `⏰ ${ev.emoji} Trouble arrives in ${left}s. Shields can't stop this one!`, target: null };
+    if (ev.protect) return { text: `:check-circle: Protected! Brace for it… ${left}s`, target: null };
+    return { text: `:alarm: ${ev.emoji} Trouble arrives in ${left}s. Shields can't stop this one!`, target: null };
   }
   if (ft && S.faults[ft]) {
     const name = TERMINALS[ft].name;
-    if (S.signal.status === 'idle') return { text: `📡 ${name} is broken! Ask Earth for help at Comms`, target: 'terminal_comms' };
-    if (S.signal.status === 'waiting') return { text: `⏳ Earth is thinking… HOLD SPACE at ${name} to slow the leak!`, target: ft };
-    return { text: `✅ Reset code ready! Go to ${name} and press Reset`, target: ft };
+    if (S.signal.status === 'idle') return { text: `:broadcast: ${name} is broken! Ask Earth for help at Comms`, target: 'terminal_comms' };
+    if (S.signal.status === 'waiting') return { text: `:hourglass-medium: Earth is thinking… HOLD SPACE at ${name} to slow the leak!`, target: ft };
+    return { text: `:check-circle: Reset code ready! Go to ${name} and press Reset`, target: ft };
   }
-  return { text: '🔧 Use your time wisely. Boost systems, or go for ⭐ research!', target: null };
+  return { text: ':wrench: Use your time wisely. Boost systems, or go for :star: research!', target: null };
 }
 
 /* ---------------------------------------------------------------------
    HUD
    --------------------------------------------------------------------- */
 const hudCache = {};
-function setText(el, key, v) { if (hudCache[key] !== v) { el.textContent = v; hudCache[key] = v; } }
-function setHtml(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = v; hudCache[key] = v; } }
+function setText(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = ic(v); hudCache[key] = v; } }   // :name: becomes an icon picture
+function setHtml(el, key, v) { if (hudCache[key] !== v) { el.innerHTML = ic(v); hudCache[key] = v; } }
 
 function renderHUD() {
   $('hud').hidden = S.phase === 'title';
@@ -665,7 +676,7 @@ function renderHUD() {
   setText($('solNum'), 'sol', training ? 'Training' : `Sol ${S.sol}`);
   setText($('solOf'), 'solof', training ? 'practice' : `of ${SOL_GOAL}`);
   const paused = S.phase !== 'crisis' || UI.modalKind === 'archives';
-  setText($('clock'), 'clock', training ? '🎓' : S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
+  setText($('clock'), 'clock', training ? ':graduation-cap:' : S.phase === 'briefing' ? '1:30' : fmtTime(S.timeLeft));
   setText($('phaseLabel'), 'phase', training ? 'No rush' : S.phase === 'briefing' ? 'Paused · Briefing' : S.phase === 'crisis' ? (paused ? 'Paused' : 'Active Crisis') : 'Night');
   const warn = S.phase === 'crisis' && S.timeLeft <= WARN_SECONDS;
   $('clockBox').classList.toggle('paused', paused);
@@ -687,16 +698,16 @@ function renderHUD() {
   if (S.phase === 'crisis') {
     const ev = S.event;
     if (ev.arriveAt != null && !S.arrived) chips += `<span class="chip info">${ev.emoji} Hits in ${Math.max(0, Math.ceil(ev.arriveAt - (CRISIS_SECONDS - S.timeLeft)))}s</span>`;
-    if (activeFault()) chips += `<span class="chip alert">⚠️ ${ev.faultLabel}</span>`;
-    if (S.patching) chips += `<span class="chip ok">🔧 Patching: leak slowed!</span>`;
-    if (S.signal.status === 'waiting') chips += `<span class="chip info">📡 Earth signal… ${Math.ceil(S.signal.remaining)}s</span>`;
-    if (S.signal.status === 'ready' && activeFault()) chips += `<span class="chip ok">📡 Reset code received</span>`;
-    if (S.shieldUp) chips += `<span class="chip ok">🛡️ Shields up</span>`;
-    if (S.retracted) chips += `<span class="chip info">🌙 Panels folded</span>`;
-    if (isDusty()) chips += `<span class="chip alert">🐢 Dust slows you down</span>`;
+    if (activeFault()) chips += `<span class="chip alert">:warning: ${ev.faultLabel}</span>`;
+    if (S.patching) chips += `<span class="chip ok">:wrench: Patching: leak slowed!</span>`;
+    if (S.signal.status === 'waiting') chips += `<span class="chip info">:broadcast: Earth signal… ${Math.ceil(S.signal.remaining)}s</span>`;
+    if (S.signal.status === 'ready' && activeFault()) chips += `<span class="chip ok">:broadcast: Reset code received</span>`;
+    if (S.shieldUp) chips += `<span class="chip ok">:shield-check: Shields up</span>`;
+    if (S.retracted) chips += `<span class="chip info">:moon: Panels folded</span>`;
+    if (isDusty()) chips += `<span class="chip alert">:hourglass: Dust slows you down</span>`;
   }
   if (S.phase !== 'title' && S.phase !== 'tutorial') {
-    chips += `<span class="chip info">⭐ Research ${S.research}</span>`;
+    chips += `<span class="chip info">:star: Research ${S.research}</span>`;
     chips += `<span class="chip info">${DIFFS[S.diff].icon} ${DIFFS[S.diff].name}</span><span class="chip info">${S.twist.icon} ${S.twist.name}</span>`;
   }
   setHtml($('status'), 'status', chips);
@@ -705,7 +716,7 @@ function renderHUD() {
 let toastTimer = null;
 function toast(msg, kind) {
   const t = $('toast');
-  t.textContent = msg;
+  t.innerHTML = ic(msg);
   t.className = kind || '';
   t.hidden = false;
   clearTimeout(toastTimer);
@@ -733,8 +744,8 @@ function renderCurrentModal() {
   const scroll = modal.scrollTop;
   const wasOpen = !!modal.querySelector('details[open]');      // keep "Science corner" open when the window refreshes
   modal.innerHTML = `
-    <h2><span class="big">${cfg.icon || ''}</span><span>${cfg.title}</span></h2>
-    ${cfg.body}
+    <h2><span class="big">${ic(cfg.icon || '')}</span><span>${ic(cfg.title)}</span></h2>
+    ${ic(cfg.body)}
     <div class="buttons"></div>
     ${UI.closable ? `<p class="hint keys">${cfg.keyHint || 'Press <kbd>ESC</kbd> or <kbd>SPACE</kbd> to close'}</p>` : ''}`;
   if (wasOpen) modal.querySelectorAll('details').forEach((d) => { d.open = true; });
@@ -744,7 +755,7 @@ function renderCurrentModal() {
   buttons.forEach((b) => {
     const el = document.createElement('button');
     el.className = `btn ${b.cls || ''}`;
-    el.textContent = b.label;
+    el.innerHTML = ic(b.label);
     el.disabled = !!b.disabled;
     el.addEventListener('click', () => { el.blur(); b.onClick && b.onClick(); });
     box.appendChild(el);
@@ -777,29 +788,29 @@ function msgHtml(msg) { return msg ? `<div class="msg ${msg.bad ? 'bad' : ''}">$
 function realCard(ev) {
   if (ev.real) {
     const live = ev.real.tag.startsWith('LIVE');
-    return `<div class="card real"><span class="tag ${live ? 'live' : ''}">🛰️ ${ev.real.tag}</span>
+    return `<div class="card real"><span class="tag ${live ? 'live' : ''}">:planet: ${ev.real.tag}</span>
       <p>${ev.real.text}</p>
       ${ev.scale !== 1 ? `<p>That makes today's storm <b>${ev.real.strength}</b> (damage ×${ev.scale}).</p>` : ''}
       <a href="${ev.real.link}" target="_blank" rel="noopener noreferrer">See the real NASA record</a></div>`;
   }
-  return ev.realNote ? `<div class="card"><span class="tag">📚 About the data</span><p class="hint">${ev.realNote}</p></div>` : '';
+  return ev.realNote ? `<div class="card"><span class="tag">:books: About the data</span><p class="hint">${ev.realNote}</p></div>` : '';
 }
 
 function eventCard(ev) {
   const words = (ev.words || []).map(([t, d]) => `<li><b>${t}:</b> ${d}</li>`).join('') +
     `<li><b>Sol:</b> ${DATA.glossary.sol}</li>`;
   const timing = ev.arriveAt != null
-    ? `<div class="card alert">⏰ <b>Expected to hit about ${ev.arriveAt} seconds after the clock starts.</b>
+    ? `<div class="card alert">:alarm: <b>Expected to hit about ${ev.arriveAt} seconds after the clock starts.</b>
         ${ev.protect === 'shields' ? ' Shields can stop it, but only if you raise them first!' : ev.protect === 'retract' ? ' Folding up the solar panels can save them, but only if you do it first!' : ' Shields cannot stop this one.'}</div>` : '';
   return `<span class="tag">${ev.source} · ${ev.category}</span>
     <p><b>${ev.emoji} ${ev.title}</b></p>
     <p>${ev.story}</p>
     ${timing}
-    <div class="card"><b>💡 What to do:</b> ${ev.advice}</div>
+    <div class="card"><b>:lightbulb: What to do:</b> ${ev.advice}</div>
     ${realCard(ev)}
-    <details class="more"><summary>🔬 Science corner &amp; new words (tap to open)</summary>
-      <div class="card science"><b>🔬 Real science:</b> ${ev.lesson}</div>
-      <div class="card"><b>📖 Words to know</b><ul>${words}</ul></div>
+    <details class="more"><summary>:microscope: Science corner &amp; new words (tap to open)</summary>
+      <div class="card science"><b>:microscope: Real science:</b> ${ev.lesson}</div>
+      <div class="card"><b>:book-open: Words to know</b><ul>${words}</ul></div>
     </details>`;
 }
 
@@ -820,7 +831,7 @@ function openComms(msg) {
         return {
           icon: t.icon, title: `Sol ${S.sol} Morning Briefing`,
           body: `${missionCard()}${eventCard(ev)}<p class="hint">The clock starts when you press the button!</p>`,
-          buttons: [{ label: `⏱️ Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
+          buttons: [{ label: `:timer: Start Sol ${S.sol}`, cls: 'good', onClick: () => { readBriefing(); closeModal(); } }],
           noClose: true,
         };
       }
@@ -828,30 +839,30 @@ function openComms(msg) {
       let sig = '';
       const buttons = [];
       if (!ft) {
-        sig = `<div class="card">No systems are broken today, so no help from Earth is needed. 🎉</div>`;
+        sig = `<div class="card">No systems are broken today, so no help from Earth is needed. :confetti:</div>`;
       } else if (!S.arrived) {
         sig = `<div class="card">Nothing is broken yet. You can only ask Earth for help once something breaks.
           <p class="hint">Messages between Mars and Earth are slow, so it is smart to get ready now.</p></div>`;
       } else if (S.blocked) {
-        sig = `<div class="card">✅ The storm was blocked. Nothing needs fixing!</div>`;
+        sig = `<div class="card">:check-circle: The storm was blocked. Nothing needs fixing!</div>`;
       } else if (!S.faults[ft]) {
-        sig = `<div class="card">✅ ${TERMINALS[ft].name} is already fixed. Nice work!</div>`;
+        sig = `<div class="card">:check-circle: ${TERMINALS[ft].name} is already fixed. Nice work!</div>`;
       } else if (S.signal.status === 'idle') {
         sig = `<div class="card alert"><b>${ev.faultLabel}.</b> You need Earth's reset code.
           <p class="hint">A message to Earth and back really takes about 25 minutes. Here it takes ${SIGNAL_SECONDS} seconds.
           <b>You can't just wait here!</b> The leak keeps draining supplies. Run to ${TERMINALS[ft].name} and HOLD SPACE to patch it while you wait.</p></div>`;
-        buttons.push({ label: `📡 Ask Earth for Help (${SIGNAL_SECONDS}s)`, cls: 'good', onClick: () => {
+        buttons.push({ label: `:broadcast: Ask Earth for Help (${SIGNAL_SECONDS}s)`, cls: 'good', onClick: () => {
           S.signal = { status: 'waiting', remaining: SIGNAL_SECONDS };
           closeModal();
-          toast(`📡 Signal sent! Run to ${TERMINALS[ft].name} and HOLD SPACE to slow the leak.`, 'good');
+          toast(`:broadcast: Signal sent! Run to ${TERMINALS[ft].name} and HOLD SPACE to slow the leak.`, 'good');
         } });
       } else if (S.signal.status === 'waiting') {
         const pct = Math.round(100 * (1 - S.signal.remaining / SIGNAL_SECONDS));
-        sig = `<div class="card"><b>📡 Message traveling to Earth and back…</b>
+        sig = `<div class="card"><b>:broadcast: Message traveling to Earth and back…</b>
           <div class="progress"><div style="width:${pct}%"></div></div>
           <p class="hint">${Math.ceil(S.signal.remaining)} seconds left. Go patch ${TERMINALS[ft].name}!</p></div>`;
       } else {
-        sig = `<div class="card"><b>✅ Earth replied!</b> The Reset button is now unlocked at <b>${TERMINALS[ft].name}</b>.</div>`;
+        sig = `<div class="card"><b>:check-circle: Earth replied!</b> The Reset button is now unlocked at <b>${TERMINALS[ft].name}</b>.</div>`;
       }
       return {
         icon: t.icon, title: 'Comms Center',
@@ -884,37 +895,37 @@ function openWing(id, msg) {
       const t = TERMINALS[id], ev = S.event;
       if (S.phase === 'briefing') {
         return { icon: t.icon, title: t.name,
-          body: `<p>⏸️ The clock is paused. Go to the <b>Comms Center</b> first and read today's briefing!</p>`, buttons: [] };
+          body: `<p>:pause: The clock is paused. Go to the <b>Comms Center</b> first and read today's briefing!</p>`, buttons: [] };
       }
       const faulted = !!S.faults[id];
       let body = msgHtml(msg);
       const buttons = [];
 
       body += faulted
-        ? `<div class="card alert"><b>⚠️ BROKEN!</b> ${ev.faultLabel}. Supplies are leaking. Boosts here are locked until it is reset.
+        ? `<div class="card alert"><b>:warning: BROKEN!</b> ${ev.faultLabel}. Supplies are leaking. Boosts here are locked until it is reset.
             <p class="hint">Close this window and <b>HOLD SPACE</b> on the glowing pad to slow the leak while you wait for Earth.</p></div>`
-        : `<div class="card">✅ ${t.name} is working normally.</div>`;
+        : `<div class="card">:check-circle: ${t.name} is working normally.</div>`;
 
       ACTIONS[id].forEach((a) => {
         const reason = actionAvailability(id, a);
         if (a.type === 'toggle') {
           if (a.id === 'solar') {
-            body += `<h3>☀️ ${a.name}</h3>
+            body += `<h3>:sun: ${a.name}</h3>
               <p>Panels are <b>${S.retracted ? 'FOLDED AWAY' : 'OUT'}</b>. Out, they make Power. Folded, they are safe from dust but make nothing.</p>
               ${costChips({}, {}, 0, S.retracted ? '<span class="chip gain">Folded: safe from dust storms</span><span class="chip cost">No solar Power</span>'
-                : `<span class="chip gain">+${+solarRate().toFixed(2)} ⚡ every second</span><span class="chip cost">Dust storm can hurt them</span>`)}`;
-            buttons.push({ label: S.retracted ? '☀️ Extend Panels' : '🌙 Retract Panels', cls: '', onClick: () => {
+                : `<span class="chip gain">+${+solarRate().toFixed(2)} :lightning: every second</span><span class="chip cost">Dust storm can hurt them</span>`)}`;
+            buttons.push({ label: S.retracted ? ':sun: Extend Panels' : ':moon: Retract Panels', cls: '', onClick: () => {
               S.retracted = !S.retracted;
               const late = S.retracted && S.arrived && ev.protect === 'retract' && !S.blocked;
-              toast(S.retracted ? '🌙 Panels folded away.' : '☀️ Panels are out again.', 'good');
+              toast(S.retracted ? ':moon: Panels folded away.' : ':sun: Panels are out again.', 'good');
               openWing(id, { text: S.retracted ? `Panels folded.${late ? ' (Too late to stop the dust that already hit.)' : ''}` : 'Panels extended.' });
             } });
           } else if (a.id === 'scrub') {
             const on = scrubbersOn();
-            body += `<h3>💨 ${a.name}</h3>
+            body += `<h3>:wind: ${a.name}</h3>
               <p>Martian dust is sharp and sneaky. With scrubbers <b>${on ? 'ON' : 'OFF'}</b> the base is ${on ? 'clean' : '<b>dusty, and you walk slowly</b>'}.</p>
-              ${costChips({}, {}, 0, on ? `<span class="chip cost">−${+scrubRate().toFixed(2)} ⚡ every second</span>` : '<span class="chip cost">🐢 Slow walking</span><span class="chip gain">Saves Power</span>')}`;
-            buttons.push({ label: reason ? `Dust Scrubbers (${reason})` : (S.scrubbers ? '⛔ Turn Scrubbers OFF' : '✅ Turn Scrubbers ON'), disabled: !!reason, onClick: () => {
+              ${costChips({}, {}, 0, on ? `<span class="chip cost">−${+scrubRate().toFixed(2)} :lightning: every second</span>` : '<span class="chip cost">:hourglass: Slow walking</span><span class="chip gain">Saves Power</span>')}`;
+            buttons.push({ label: reason ? `Dust Scrubbers (${reason})` : (S.scrubbers ? ':prohibit: Turn Scrubbers OFF' : ':check-circle: Turn Scrubbers ON'), disabled: !!reason, onClick: () => {
               S.scrubbers = !S.scrubbers;
               openWing(id, { text: S.scrubbers ? 'Scrubbers are running.' : 'Scrubbers are off: saving Power, but dust will slow you down!', bad: !S.scrubbers });
             } });
@@ -924,7 +935,7 @@ function openWing(id, msg) {
         body += `<h3>${a.name}</h3><p>${a.blurb}</p>${costChips(actionCost(a), actionGain(a), a.stars)}`;
         if (a.id === 'shield' && !reason) {
           const hint = ev.protect === 'shields' ? '' : (ev.faultTerminal ? 'Careful: shields can\'t stop today\'s problem!' : 'No storm is coming today, so shields would be wasted.');
-          if (hint) body += `<p class="hint">⚠️ ${hint}</p>`;
+          if (hint) body += `<p class="hint">:warning: ${hint}</p>`;
         }
         buttons.push({
           label: reason ? `${a.name} (${reason})` : a.name, disabled: !!reason,
@@ -942,21 +953,21 @@ function openWing(id, msg) {
       });
 
       if (faulted) {
-        body += `<h3>🔧 Critical System Reset</h3>${costChips(RESET_COST)}`;
+        body += `<h3>:wrench: Critical System Reset</h3>${costChips(RESET_COST)}`;
         let rReason = '';
         if (S.signal.status === 'idle') rReason = 'Needs a reset code from Earth: visit Comms';
         else if (S.signal.status === 'waiting') rReason = `Waiting for Earth… ${Math.ceil(S.signal.remaining)}s`;
         else if (canAfford(RESET_COST)) rReason = `Not enough ${RES[canAfford(RESET_COST)].label}`;
         body += `<p class="hint">${rReason || 'Earth\'s reset code has arrived. You are cleared to reset!'}</p>`;
         buttons.push({
-          label: '🔧 Reset System', cls: 'good', disabled: !!rReason,
+          label: ':wrench: Reset System', cls: 'good', disabled: !!rReason,
           onClick: () => {
             addAll(RESET_COST, -1);
             S.faults[id] = false;
             S.stats.fixed++;
             S.patching = false;
-            toast(`✅ ${t.name} is fixed!`, 'good');
-            if (!checkLose()) openWing(id, { text: '🔧 Reset complete! The leak has stopped.' });
+            toast(`:check-circle: ${t.name} is fixed!`, 'good');
+            if (!checkLose()) openWing(id, { text: ':wrench: Reset complete! The leak has stopped.' });
           },
         });
       }
@@ -984,10 +995,10 @@ function openArchives() {
       const gl = Object.entries(DATA.glossary).map(([k, v]) => `<li><b>${k}:</b> ${v}</li>`).join('');
       return {
         icon: t.icon, title: 'NASA Archives',
-        body: `<p class="hint">⏸️ The clock is paused while you read.</p>
+        body: `<p class="hint">:pause: The clock is paused while you read.</p>
           <p>Welcome, space scout! Here is the real NASA science behind this game.</p>
           <h3>Real space weather records</h3>
-          <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">🛰️ ${DONKI.label}</span>
+          <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">:planet: ${DONKI.label}</span>
             <ul>${recs}</ul>
             <p class="hint">These come from NASA's DONKI database. The strength of each storm in the game is scaled by a real record like these.</p></div>
           <h3>Events you may meet on Mars</h3><ul>${evs}</ul>
@@ -1007,7 +1018,7 @@ function openArchives() {
    --------------------------------------------------------------------- */
 function badgeGrid(earned) {
   return `<div class="badges">${BADGES.map((b) => `<div class="badge ${earned[b.id] ? 'got' : 'locked'}">
-      <span class="bi">${earned[b.id] ? b.icon : '🔒'}</span><span><b>${b.name}</b><small>${b.text}</small></span></div>`).join('')}</div>`;
+      <span class="bi">${earned[b.id] ? b.icon : ':lock:'}</span><span><b>${b.name}</b><small>${b.text}</small></span></div>`).join('')}</div>`;
 }
 
 function showTitle() {
@@ -1019,17 +1030,17 @@ function showTitle() {
       const diffs = Object.entries(DIFFS).map(([id, d]) =>
         `<button class="diff ${S.diff === id ? 'on' : ''}" data-diff="${id}"><span class="di">${d.icon}</span><b>${d.name}</b><small>${d.blurb}</small>${best[id] ? `<em>Best: ${best[id]}</em>` : ''}</button>`).join('');
       const loading = DONKI.status === 'loading';
-      const buttons = [{ label: loading ? '⏳ Contacting NASA…' : '🚀 Start Mission', cls: 'good', disabled: loading, onClick: () => { newGame(); } }];
-      if (tutorialSeen()) buttons.push({ label: '🎓 Training (under 1 min)', cls: 'secondary', disabled: loading, onClick: () => { startTutorial(); } });
+      const buttons = [{ label: loading ? ':hourglass-medium: Contacting NASA…' : ':rocket-launch: Start Mission', cls: 'good', disabled: loading, onClick: () => { newGame(); } }];
+      if (tutorialSeen()) buttons.push({ label: ':graduation-cap: Training', cls: 'secondary', disabled: loading, onClick: () => { startTutorial(); } });
       return {
-        closable: false, icon: '🚀', title: 'Mars Outpost Survival',
-        body: `<p>You are the only astronaut on Mars! Keep <b>⚡ Power</b>, <b>💨 Oxygen</b> and <b>🍎 Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
+        closable: false, icon: ':rocket-launch:', title: 'Mars Outpost Survival',
+        body: `<p>You are the only astronaut on Mars! Keep <b>:lightning: Power</b>, <b>:wind: Oxygen</b> and <b>:orange: Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
           <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!</p>
           ${tutorialSeen() ? '' : '<p class="hint">First time? A quick training (under a minute) comes first.</p>'}
           <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
           <p class="hint">Every mission has a different storm order, a random landing site, and real NASA data.</p>
           <h3>Badges: ${got}/${BADGES.length}</h3>${badgeGrid(earned)}
-          <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">🛰️ ${DONKI.label}</span></div>`,
+          <div class="card real"><span class="tag ${DONKI.status === 'live' ? 'live' : ''}">:planet: ${DONKI.label}</span></div>`,
         buttons,
         after: (m) => m.querySelectorAll('.diff').forEach((el) => el.addEventListener('click', () => {
           S.diff = el.dataset.diff; store.set(KEY_DIFF, S.diff); renderCurrentModal();
@@ -1065,26 +1076,26 @@ function showEndModal() {
   const won = S.result === 'won';
   const f = finalizeRun(), d = DIFFS[S.diff];
   const scoreCard = `<div class="card score">
-      <div class="bigscore">⭐ Score: ${f.score}</div>
+      <div class="bigscore">:star: Score: ${f.score}</div>
       <div class="hint">Sols survived ${f.parts.sols} + supplies left ${f.parts.supplies} + research ${f.parts.science}${d.mult !== 1 ? ` &times; ${d.mult} (${d.name})` : ''}</div>
-      <p>${f.isNew ? `🎉 <b>New best on ${d.name}!</b>${f.prev ? ` (old best: ${f.prev})` : ''}` : `Your best on ${d.name}: <b>${f.prev}</b>`}</p></div>`;
-  const badgeCard = (f.fresh.length ? `<div class="card real"><b>🏅 New badge${f.fresh.length > 1 ? 's' : ''}!</b> ${f.fresh.map((b) => `${b.icon} <b>${b.name}</b>`).join(' &nbsp; ')}</div>` : '') +
-    (f.next ? `<p class="hint">Next badge to try: ${f.next.icon} <b>${f.next.name}</b>: ${f.next.text}.</p>` : '<p class="hint">🌟 You have every badge. Wow, space legend!</p>');
+      <p>${f.isNew ? `:confetti: <b>New best on ${d.name}!</b>${f.prev ? ` (old best: ${f.prev})` : ''}` : `Your best on ${d.name}: <b>${f.prev}</b>`}</p></div>`;
+  const badgeCard = (f.fresh.length ? `<div class="card real"><b>:medal: New badge${f.fresh.length > 1 ? 's' : ''}!</b> ${f.fresh.map((b) => `${b.icon} <b>${b.name}</b>`).join(' &nbsp; ')}</div>` : '') +
+    (f.next ? `<p class="hint">Next badge to try: ${f.next.icon} <b>${f.next.name}</b>: ${f.next.text}.</p>` : '<p class="hint">:sparkle: You have every badge. Wow, space legend!</p>');
   showModal({
     kind: 'end', closable: false,
-    icon: won ? '🏆' : '💔',
+    icon: won ? ':trophy:' : ':heart-break:',
     title: won ? 'Mission Complete!' : 'Mission Failed',
     body: won
       ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! You handled space weather, long Earth delays and tough trade-offs like a real NASA crew.</p>
-         <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>⭐ Research collected: <b>${S.research}</b></div>
+         <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>:star: Research collected: <b>${S.research}</b></div>
          ${scoreCard}${badgeCard}`
-      : `<p>${S.lossReason} You made it to Sol ${S.sol}. ⭐ Research: ${S.research}.</p>
-         <div class="card science"><b>🎓 What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
+      : `<p>${S.lossReason} You made it to Sol ${S.sol}. :star: Research: ${S.research}.</p>
+         <div class="card science"><b>:graduation-cap: What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
          ${scoreCard}${badgeCard}
          <p class="hint">Real astronauts and mission planners also learn from things that go wrong. Every run is different, so try again!</p>`,
     buttons: [
-      { label: '🔁 Play Again', cls: 'good', onClick: () => newGame() },
-      { label: '🏠 Change challenge', cls: 'secondary', onClick: () => { S.phase = 'title'; showTitle(); } },
+      { label: ':arrow-clockwise: Play Again', cls: 'good', onClick: () => newGame() },
+      { label: ':house: Change challenge', cls: 'secondary', onClick: () => { S.phase = 'title'; showTitle(); } },
     ],
   });
 }
@@ -1099,6 +1110,7 @@ class MarsScene extends Phaser.Scene {
     this.load.on('loaderror', (f) => fatal(`Could not load ${f.src || f.key}`));
     this.load.tilemapTiledJSON('map', MAP_PATH);
     this.load.image('tiles', TILES_PATH);
+    this.load.atlasXML('rts', TILES_PATH, ATLAS_XML);          // the same art, with a name for every sprite
     this.load.json('events', 'nasa_events.json');
   }
 
@@ -1112,7 +1124,17 @@ class MarsScene extends Phaser.Scene {
       }
       if (UI.modalKind === 'title') renderCurrentModal();
     });
+    this.ready = false;
+    // pictures used inside the game world (pad icons, labels, the arrow) are made from the same icon set as the menus
+    Promise.all(WORLD_ICONS.map((n) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => { this.textures.addImage('ic_' + n, img); resolve(); };
+      img.onerror = resolve;
+      img.src = iconDataUrl(n, 96);
+    }))).then(() => this.buildWorld()).catch((e) => fatal(String(e && e.message || e)));
+  }
 
+  buildWorld() {
     /* ---- tilemap ---- */
     const map = this.make.tilemap({ key: 'map' });
     const tileset = map.addTilesetImage(map.tilesets[0].name, 'tiles');
@@ -1136,15 +1158,25 @@ class MarsScene extends Phaser.Scene {
 
     /* ---- interactables ---- */
     const objs = map.getObjectLayer('Interactables').objects;
-    this.zones = [];
+    const defs = [];
     let spawn = { x: map.widthInPixels / 2, y: map.heightInPixels / 2 };
     objs.forEach((o) => {
       const name = normName(o.name);
       const rect = new Phaser.Geom.Rectangle(o.x, o.y, o.width, o.height);
       if (name === 'spawn_point') { spawn = { x: rect.centerX, y: rect.centerY }; return; }
-      if (TERMINALS[name]) this.zones.push(this.makeTerminalMarker(name, rect));
+      if (TERMINALS[name]) defs.push({ id: name, rect, rgb: [(TERMINALS[name].color >> 16) & 255, (TERMINALS[name].color >> 8) & 255, TERMINALS[name].color & 255].join(',') });
     });
     this.spawn = spawn;
+
+    /* ---- the painted world (terrain, paving, props, shadows, lights, dust) ---- */
+    this.scenery = null;
+    try {
+      this.scenery = Scenery.build(this, map, { ground: this.ground, walls: this.walls, pathIds: this.pathIds, zones: defs });
+      this.ground.setVisible(false);                 // the paved paths are now painted; the tile data is still used for "am I on a path?"
+    } catch (e) { console.error('Scenery failed, using plain tiles', e); }
+
+    this.cutOutDecorTiles();
+    this.zones = defs.map((d) => this.makeTerminalMarker(d.id, d.rect));
     this.makeRoomSigns(map);
 
     /* ---- player ---- */
@@ -1157,18 +1189,27 @@ class MarsScene extends Phaser.Scene {
         key = 'tiles'; frame = 'astro';
       }
     } catch (e) { /* fall back to drawn astronaut */ }
-    this.shadow = this.add.ellipse(spawn.x, spawn.y + 18, 22, 8, 0x000000, 0.35).setDepth(3);
-    this.player = this.physics.add.sprite(spawn.x, spawn.y, key, frame).setDepth(4);
+    // a soft glow under the astronaut so they stand out against the grey paving
+    if (this.textures.exists('glow_soft')) this.halo = this.add.image(spawn.x, spawn.y + 10, 'glow_soft').setScale(0.62).setTint(0x8fe3ff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55).setDepth(2.98);
+    this.shadow = this.add.ellipse(spawn.x, spawn.y + 18, 22, 8, 0x000000, 0.35).setDepth(2.99);
+    this.player = this.physics.add.sprite(spawn.x, spawn.y, key, frame).setDepth(3.1);
     this.player.body.setSize(20, 20).setOffset(6, 26);   // 20x20 feet hitbox
     this.player.setCollideWorldBounds(true);
     this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     this.physics.add.collider(this.player, this.walls);
+    if (this.scenery && this.scenery.solids.length) {     // vehicles, buildings and boulders you have to walk around
+      const group = this.physics.add.staticGroup();
+      this.scenery.solids.forEach((r) => { const z = this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h); this.physics.add.existing(z, true); group.add(z); });
+      this.physics.add.collider(this.player, group);
+    }
 
     /* ---- camera ---- */
     const cam = this.cameras.main;
     cam.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     cam.startFollow(this.player, true, 0.1, 0.1);
-    cam.setZoom(1.5);
+    let zoom = 1.5;
+    try { const z = parseFloat(new URLSearchParams(location.search).get('zoom')); if (z > 0.2 && z < 4) zoom = z; } catch (e) { /* default */ }
+    cam.setZoom(zoom);
 
     /* ---- input ---- */
     const kb = this.input.keyboard;
@@ -1182,13 +1223,59 @@ class MarsScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '17px', fontStyle: '700', color: '#ffd93b',
       stroke: '#2b1458', strokeThickness: 7, align: 'center', padding: { x: 4, y: 4 },
     }).setOrigin(0.5, 1).setDepth(50).setVisible(false);
-    this.arrow = this.add.text(0, 0, '▼', {
-      fontFamily: FONT, fontSize: '34px', fontStyle: '700', color: '#ff5fa8', stroke: '#2b1458', strokeThickness: 8,
-    }).setOrigin(0.5, 1).setDepth(40).setVisible(false);
+    this.arrow = this.add.image(0, 0, 'ic_arrow-fat-down').setScale(0.5).setOrigin(0.5, 1).setDepth(40).setVisible(false);
 
+    this.ready = true;
     $('loading').hidden = true;
     showTitle();
   }
+
+  /* The trees and rocks in the map are slices of pictures that have plain dirt painted behind them, which showed up as
+     flat rectangles on the new textured ground. Here we make that dirt colour see-through and redraw just those tiles. */
+  cutOutDecorTiles() {
+    try {
+      const src = this.textures.get('tiles').getSourceImage();
+      const cv = document.createElement('canvas');
+      cv.width = src.width; cv.height = src.height;
+      const c = cv.getContext('2d', { willReadFrequently: true });
+      c.drawImage(src, 0, 0);
+      const data = c.getImageData(0, 0, cv.width, cv.height), px = data.data;
+      // the dirt colours: every colour that appears in the pack's two plain dirt pictures
+      const pal = new Map();
+      ['scifiTile_41.png', 'scifiTile_42.png'].forEach((n) => {
+        const f = this.textures.getFrame('rts', n);
+        for (let y = f.cutY; y < f.cutY + f.cutHeight; y++) for (let x = f.cutX; x < f.cutX + f.cutWidth; x++) {
+          const i = (y * cv.width + x) * 4, k = (px[i] >> 2) << 16 | (px[i + 1] >> 2) << 8 | (px[i + 2] >> 2);
+          pal.set(k, (pal.get(k) || 0) + 1);
+        }
+      });
+      const colors = [...pal.entries()].filter(([, n]) => n >= 4).map(([k]) => [((k >> 16) & 63) << 2, ((k >> 8) & 63) << 2, (k & 63) << 2]);
+      for (let i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        for (let j = 0; j < colors.length; j++) {
+          const d0 = px[i] - colors[j][0], d1 = px[i + 1] - colors[j][1], d2 = px[i + 2] - colors[j][2];
+          if (d0 * d0 + d1 * d1 + d2 * d2 <= 300) { px[i + 3] = 0; break; }
+        }
+      }
+      c.putImageData(data, 0, 0);
+      const tex = this.textures.addCanvas('tiles_cut', cv);
+      const ts = this.walls.tileset[0], cols = ts.columns || 31;
+      const made = new Set();
+      const isDecor = (t) => { const g = this.ground.getTileAt(t.x, t.y); return !(g && this.pathIds.has(g.index)); };
+      if (this.scenery) this.scenery.makeShadows((t) => (isDecor(t) ? cv : src));
+      this.walls.forEachTile((t) => {
+        if (t.index <= 0) return;
+        if (!isDecor(t)) return;          // pieces of buildings on the paving are left exactly as they were
+        const name = 'g' + t.index;
+        if (!made.has(name)) { tex.add(name, 0, ((t.index - 1) % cols) * 32, Math.floor((t.index - 1) / cols) * 32, 32, 32); made.add(name); }
+        t.visible = false;                                    // still blocks the player, just not drawn
+        this.add.image(t.pixelX + 16, t.pixelY + 16, 'tiles_cut', name).setDepth(2).setFlipX(!!t.flipX).setFlipY(!!t.flipY).setRotation(t.rotation || 0);
+      });
+    } catch (e) { console.error('Could not clean up decoration tiles', e); }
+  }
+
+  /* a brief shake when a storm reaches the base */
+  shakeScreen(hard) { if (this.cameras && this.cameras.main) this.cameras.main.shake(hard ? 420 : 220, hard ? 0.006 : 0.002); }
 
   makeFallbackAstronaut() {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -1202,42 +1289,76 @@ class MarsScene extends Phaser.Scene {
     g.destroy();
   }
 
+  /* A terminal pad: a glowing metal plate with its own icon. `alert` is the red warning version shown when it breaks. */
   makeTerminalMarker(id, rect) {
-    const t = TERMINALS[id];
-    const pad = 4;
-    const draw = (fill, line) => {
-      const g = this.add.graphics().setDepth(1);
-      g.fillStyle(fill, 0.35).fillRoundedRect(rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2, 14);
-      g.lineStyle(5, 0x2b1458, 1).strokeRoundedRect(rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2, 14);
-      g.lineStyle(3, line, 1).strokeRoundedRect(rect.x - pad + 3, rect.y - pad + 3, rect.width + pad * 2 - 6, rect.height + pad * 2 - 6, 11);
-      return g;
-    };
-    const base = draw(t.color, 0xffffff);
-    const alert = draw(0xff4d4d, 0xff4d4d).setVisible(false);
-    // one small plaque per terminal; the center ones sit below / beside their pads so nothing overlaps
-    const label = `${t.icon} ${t.name}`;
-    if (id === 'terminal_comms') this.makeLabel(rect.centerX, rect.bottom + 8, label, t.color, 0.5, 0);
-    else if (id === 'terminal_archives') this.makeLabel(rect.right + 10, rect.centerY, label, t.color, 0, 0.5);
-    else this.makeLabel(rect.centerX, rect.top - 8, label, t.color, 0.5, 1);
+    const t = TERMINALS[id], col = t.color, iconKey = 'ic_' + iconOf(t.icon);
+    const pad = 6, x = rect.x - pad, y = rect.y - pad, w = rect.width + pad * 2, h = rect.height + pad * 2;
+    const base = this.add.container(0, 0).setDepth(1.4);
+    const g = this.add.graphics();
+    g.fillStyle(col, 0.10).fillRoundedRect(x - 9, y - 9, w + 18, h + 18, 24);
+    g.fillStyle(col, 0.18).fillRoundedRect(x - 4, y - 4, w + 8, h + 8, 18);
+    g.fillStyle(0x22304a, 1).fillRoundedRect(x, y, w, h, 14);
+    g.lineStyle(4, 0x2b1458, 1).strokeRoundedRect(x, y, w, h, 14);
+    g.fillStyle(0x354a70, 1).fillRoundedRect(x + 5, y + 5, w - 10, h - 10, 10);
+    g.lineStyle(3, col, 1).strokeRoundedRect(x + 7, y + 7, w - 14, h - 14, 8);
+    [[x + 10, y + 10], [x + w - 10, y + 10], [x + 10, y + h - 10], [x + w - 10, y + h - 10]].forEach(([cx, cy]) => g.fillStyle(0xffffff, 0.9).fillCircle(cx, cy, 2.2));
+    base.add(g);
+    const pulse = this.add.graphics();
+    pulse.lineStyle(4, col, 1).strokeRoundedRect(x - 3, y - 3, w + 6, h + 6, 17);
+    base.add(pulse);
+    this.tweens.add({ targets: pulse, alpha: { from: 0.15, to: 0.95 }, duration: 950, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const size = clamp(Math.min(rect.width, rect.height) - 8, 26, 46);
+    const disc = this.add.graphics();
+    disc.fillStyle(0xffffff, 1).fillCircle(rect.centerX, rect.centerY, size * 0.62);
+    disc.lineStyle(4, col, 1).strokeCircle(rect.centerX, rect.centerY, size * 0.62);
+    disc.lineStyle(2, 0x2b1458, 1).strokeCircle(rect.centerX, rect.centerY, size * 0.62 + 3);
+    base.add(disc);
+    const ic = this.add.image(rect.centerX, rect.centerY, iconKey).setDisplaySize(size, size);
+    base.add(ic);
+    this.tweens.add({ targets: ic, y: rect.centerY - 2.5, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+
+    // red alarm overlay + bobbing warning sign
+    const alert = this.add.container(0, 0).setDepth(1.5).setVisible(false);
+    const ag = this.add.graphics();
+    ag.fillStyle(0xff3b3b, 0.42).fillRoundedRect(x, y, w, h, 14);
+    ag.lineStyle(5, 0xff3b3b, 1).strokeRoundedRect(x - 2, y - 2, w + 4, h + 4, 16);
+    alert.add(ag);
+    const warn = this.add.image(rect.centerX, y - 6, 'ic_warning').setDisplaySize(34, 34).setOrigin(0.5, 1);
+    alert.add(warn);
+    this.tweens.add({ targets: warn, y: y - 11, duration: 380, yoyo: true, repeat: -1 });
+
+    // one small name tag per terminal; the centre ones sit below / beside their pads so nothing overlaps
+    if (id === 'terminal_comms') this.makeLabel(rect.centerX, rect.bottom + 10, t.name, col, 0.5, 0, iconKey);
+    else if (id === 'terminal_archives') this.makeLabel(rect.right + 12, rect.centerY, t.name, col, 0, 0.5, iconKey);
+    else this.makeLabel(rect.centerX, rect.top - (id === 'terminal_shields' ? 12 : 12), t.name, col, 0.5, 1, iconKey);
     return { id, rect, base, alert };
   }
 
-  // Small, legible name plaque: text on a rounded colored tag.
-  makeLabel(x, y, text, color, ox, oy) {
+  // Small, legible name plaque: an icon and a word on a rounded coloured tag.
+  makeLabel(x, y, text, color, ox, oy, iconKey) {
     const t = this.add.text(0, 0, text, {
       fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#ffffff', stroke: '#2b1458', strokeThickness: 4,
-    }).setOrigin(0.5);
-    const w = t.width + 16, h = t.height + 4;
+    }).setOrigin(0, 0.5);
+    const isz = 20, gap = 5;
+    const iw = iconKey ? isz + gap : 0;
+    const w = t.width + 18 + iw, h = Math.max(t.height + 4, isz + 6);
     const left = x - w * ox, top = y - h * oy;
-    t.setPosition(left + w / 2, top + h / 2).setDepth(6);
     const g = this.add.graphics().setDepth(5.9);
-    g.fillStyle(color, 1).fillRoundedRect(left, top, w, h, 10);
-    g.lineStyle(3, 0x2b1458, 1).strokeRoundedRect(left, top, w, h, 10);
+    g.fillStyle(0x000000, 0.22).fillRoundedRect(left, top + 3, w, h, 11);
+    g.fillStyle(color, 1).fillRoundedRect(left, top, w, h, 11);
+    g.lineStyle(3, 0x2b1458, 1).strokeRoundedRect(left, top, w, h, 11);
+    if (iconKey) {
+      const dot = this.add.graphics().setDepth(5.95);
+      dot.fillStyle(0xffffff, 1).fillCircle(left + 9 + isz / 2, top + h / 2, isz / 2 + 1);
+      dot.lineStyle(2, 0x2b1458, 1).strokeCircle(left + 9 + isz / 2, top + h / 2, isz / 2 + 1);
+      this.add.image(left + 9 + isz / 2, top + h / 2, iconKey).setDisplaySize(isz - 2, isz - 2).setDepth(6);
+      t.setPosition(left + 9 + iw + isz / 2 - 2, top + h / 2).setDepth(6);
+    } else t.setPosition(left + 9, top + h / 2).setDepth(6);
   }
 
   makeRoomSigns() {
     const co = this.zones.find((q) => q.id === 'terminal_comms');
-    if (co) this.makeLabel(co.rect.centerX, this.spawn.y + 28, '🏠 Command Bunker', 0xff8fc8, 0.5, 1);
+    if (co) this.makeLabel(co.rect.centerX, this.spawn.y + 28, 'Command Bunker', 0xff8fc8, 0.5, 1, 'ic_house');
   }
 
   teleportToSpawn() {
@@ -1260,6 +1381,7 @@ class MarsScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (!this.ready) return;                         // the world is still being painted
     const dt = Math.min(delta, 100) / 1000;
     tick(dt);
     renderHUD();
@@ -1290,24 +1412,26 @@ class MarsScene extends Phaser.Scene {
     if (vx < 0) p.setFlipX(true); else if (vx > 0) p.setFlipX(false);
     p.setScale(1, vx || vy ? 1 + Math.sin(time / 70) * 0.03 : 1);
     this.shadow.setPosition(p.x, p.y + 18);
+    if (this.halo) this.halo.setPosition(p.x, p.y + 10);
+    p.setDepth(3 + (p.y + 24) / 10000);              // walk in front of or behind props depending on where your feet are
+    if (this.scenery) { this.scenery.update(time); this.scenery.setMood(currentMood()); }
 
     // terminal detection
     const zone = UI.modalOpen ? null : this.nearestZone();
     const faultedHere = !!(zone && S.phase === 'crisis' && S.faults[zone.id]);
     if (zone && S.phase === 'tutorial') {
       const st = TUT_STEPS[T.step];
-      let label = '👆 Follow the pink arrow first!';
+      let label = 'Follow the pink arrow first!';
       if (st && zone.id === st.target) {
-        const n = Math.min(5, Math.floor((T.hold / TUT_HOLD) * 5));
-        label = st.hold ? (T.hold > 0 ? `🔧 Patching… ${'▰'.repeat(n)}${'▱'.repeat(5 - n)}` : '👉 HOLD SPACE (keep it down!)') : 'Press SPACE';
+        label = st.hold ? (T.hold > 0 ? `Patching… ${Math.round(100 * T.hold / TUT_HOLD)}%` : 'HOLD SPACE (keep it down!)') : 'Press SPACE';
       }
-      this.prompt.setText(label).setPosition(p.x, p.y - 34).setVisible(true);
+      this.prompt.setText(plainText(label)).setPosition(p.x, p.y - 34).setVisible(true);
     } else if (zone) {
-      const label = S.patching ? '🔧 Patching… leak slowed!'
+      const label = S.patching ? ':wrench: Patching… leak slowed!'
         : faultedHere ? `${TERMINALS[zone.id].name} is BROKEN!
 TAP SPACE: open  ·  HOLD SPACE: patch the leak`
         : `Press SPACE to use ${TERMINALS[zone.id].name}`;
-      this.prompt.setText(label).setPosition(p.x, p.y - 34).setVisible(true);
+      this.prompt.setText(plainText(label)).setPosition(p.x, p.y - 34).setVisible(true);
     } else this.prompt.setVisible(false);
 
     const modalAtStart = UI.modalOpen;      // a card opened by this very SPACE press must not be closed by it
@@ -1352,6 +1476,7 @@ TAP SPACE: open  ·  HOLD SPACE: patch the leak`
    Boot
    --------------------------------------------------------------------- */
 window.addEventListener('error', (e) => { if (!scene) fatal(e.message); });
+document.querySelectorAll('.ico, #skipTut').forEach((el) => { el.innerHTML = ic(el.textContent); });   // static HUD icons
 $('skipTut').addEventListener('click', (e) => { e.currentTarget.blur(); skipTutorial(); });
 
 if (typeof Phaser === 'undefined') {

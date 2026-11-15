@@ -174,3 +174,22 @@ table.sum td:last-child { text-align: right; font-weight: 700; }
 /* the action buttons stay visible even when a window is taller than the screen */
 #modal .buttons { position: sticky; bottom: -24px; z-index: 2; background: linear-gradient(to bottom, rgba(255,246,224,0), var(--cream) 22%);
   padding: 18px 0 14px; margin-top: 4px; }
+
+/* ---------- icons (pictures that replace emoji; see icons.js) ---------- */
+.ic { width: 1.12em; height: 1.12em; vertical-align: -.24em; flex: none; overflow: visible; margin: 0 .04em; }
+.bar .ico .ic { width: 28px; height: 28px; vertical-align: middle; margin: 0; }
+#modal h2 .big { display: inline-flex; }
+#modal h2 .big .ic { width: 56px; height: 56px; margin: 0; vertical-align: middle; filter: drop-shadow(0 3px 0 rgba(43, 20, 88, .25)); }
+.diff .di { display: flex; justify-content: center; }
+.diff .di .ic { width: 38px; height: 38px; margin: 0; }
+.badge .bi { display: flex; align-items: center; }
+.badge .bi .ic { width: 32px; height: 32px; margin: 0; }
+.badge.locked .bi .ic { filter: grayscale(1) opacity(.55); }
+.btn .ic { margin-right: .12em; }
+#skipTut .ic { width: 1.1em; height: 1.1em; vertical-align: -.2em; }
+
+/* ---------- mood tint over the world (night, dust storm) ---------- */
+#haze { position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0; transition: opacity 1.6s ease; }
+body[data-mood="night"] #haze { background: #18276e; opacity: .5; mix-blend-mode: multiply; }
+body[data-mood="storm"] #haze { background: radial-gradient(ellipse at center, rgba(222, 130, 70, .30), rgba(190, 90, 40, .55)); opacity: 1; animation: gust 2.4s ease-in-out infinite alternate; }
+@keyframes gust { from { filter: brightness(1); } to { filter: brightness(.82); } }

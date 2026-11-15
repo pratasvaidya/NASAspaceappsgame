@@ -18,7 +18,7 @@ Controls: WASD or arrow keys to walk (you run about 35% faster on the paved path
 
 ## Why you will want to play again
 
-- **Three challenges:** 🌱 Cadet (gentler storms), 🚀 Astronaut, 🔥 Commander (stronger storms, a hungrier base, fewer supplies).
+- **Three challenges:** Cadet (gentler storms), Astronaut, Commander (stronger storms, a hungrier base, fewer supplies).
 - **A new landing site every mission** (random twist): Sunny Plateau (more solar Power, less Food), Garden Dome (more Food from crops, less Oxygen), Shield Ridge (cheaper shields, less Power), Dusty Valley (scrubbers cost double, swept panels give more Power), or a Standard site.
 - **Shuffled storms and real data:** the eight events come in a different order each mission, arrive at different times, and are scaled by a different real DONKI record each time. Storms also get 4% stronger every Sol.
 - **Score and personal best** for each challenge, plus **six badges** to collect (Storm Dodger, Fix-It Pro, Junior Scientist, Cool Under Pressure, Mars Survivor, Commander). Scores and badges are saved only in your own browser.
@@ -29,11 +29,11 @@ Controls: WASD or arrow keys to walk (you run about 35% faster on the paved path
 | Where | Choice | Price |
 |---|---|---|
 | North Wing | Electromagnetic Shielding | −30 Power (21 at Shield Ridge). Only helps if raised **before** the storm arrives, and only against storms shields can stop. |
-| North Wing | Retract solar panels (dust storms) | Saves the panels but you lose their Power (+0.15 ⚡ per second) |
+| North Wing | Retract solar panels (dust storms) | Saves the panels but you lose their Power (+0.15 Power per second) |
 | East Wing | Crop Incubators | −20 Power, −15 Oxygen for +30 Food |
 | West Wing | Oxygen Generator | −15 Power for +30 Oxygen |
 | South Wing | Sweep Solar Panels (EVA) | −10 Oxygen for +30 Power |
-| South Wing | Collect Rock Samples (research) | −15 Oxygen for +1 ⭐ (no supplies) |
+| South Wing | Collect Rock Samples (research) | −15 Oxygen for +1 star of Research (no supplies) |
 | South Wing | Dust Scrubbers | −0.1 Power per second. Off = dust slows your walking |
 | Command Hub | Ask Earth for help | Takes 25 seconds (the "25-minute" Earth round trip). You can't just wait: the broken system keeps leaking. |
 
@@ -55,8 +55,11 @@ Notes:
 - The default `DEMO_KEY` has a low rate limit. Results are cached for 6 hours. For classrooms, get a free key at <https://api.nasa.gov> and open the game with `?key=YOUR_KEY`.
 - Damage amounts, event timing and balance numbers are game design, not NASA measurements.
 
+## Look and feel
+All pictures in the menus and on the map are icons (no emoji). The world is painted at start-up from Kenney's sprites plus code-drawn pavement, shadows, craters, ice, lamps and drifting dust. At night the base is tinted blue and the lamps glow; in a dust storm the screen turns dusty orange and the whole base shakes when a storm hits.
+
 ## Credits
-Kenney "Sci-Fi RTS" (CC0), Phaser 3 (MIT), Fredoka font (SIL OFL).
+Kenney "Sci-Fi RTS" (CC0), Phosphor Icons (MIT), Phaser 3 (MIT), Fredoka font (SIL OFL).
 
 ## Files
-`index.html`, `style.css`, `game.js`, `nasa_events.json` (event stories, glossary, attributions, saved sample data), `assets/`.
+`index.html`, `style.css`, `game.js` (the game), `scenery.js` (paints the map), `icons.js` (the icon set), `nasa_events.json` (event stories, glossary, attributions, saved sample data), `assets/`.
