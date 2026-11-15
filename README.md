@@ -12,7 +12,7 @@ python -m http.server 8000
 
 Then open <http://localhost:8000>. No account, no install, no build step. (It needs internet for Phaser and the Fredoka font, and for live NASA data. Without internet it still plays using a saved copy of real data.)
 
-Controls: WASD or arrow keys to walk, SPACE to use a pad. **Tap** SPACE to open a terminal. **Hold** SPACE at a broken terminal to patch the leak.
+Controls: WASD or arrow keys to walk (you run about 35% faster on the paved pathways than on bare ground), SPACE to use a pad. **Tap** SPACE to open a terminal. **Hold** SPACE at a broken terminal to patch the leak.
 
 ## The trade-offs (nothing is free)
 

@@ -20,8 +20,9 @@ const SCRUB_RATE = 0.1;       // Power per second while dust scrubbers run
 const DRAIN_DIV = 75;         // a glitch drains (hit / 75) per second
 const PATCH_FACTOR = 0.25;    // holding SPACE at a broken terminal keeps 25% of the drain
 const HOLD_SECONDS = 0.35;    // hold SPACE this long to start patching
-const WALK_SPEED = 170;
-const DUST_SPEED = 90;
+const WALK_SPEED = 160;       // walking on bare Martian ground
+const PATH_SPEED = 220;       // running on the paved pathways
+const DUST_FACTOR = 0.55;     // dust makes you this much slower
 
 const MAP_PATH = 'assets/kenney_sci-fi-rts/outpost_map.json';
 const TILES_PATH = 'assets/kenney_sci-fi-rts/Spritesheet/scifiRTS_spritesheet@2.png';
@@ -804,6 +805,7 @@ function showTitle() {
       body: `<p>You are the only astronaut at a Mars outpost! Keep <b>⚡ Power</b>, <b>💨 Oxygen</b> and <b>🍎 Food</b> above zero for <b>${SOL_GOAL} Sols</b>. A <b>sol</b> is a Mars day.</p>
       <ul>
         <li>Move with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or the arrow keys.</li>
+        <li>You run <b>faster on the pathways</b> than on the bare ground, so stick to the paths when time is short!</li>
         <li>Stand on a pad and press <span class="keys"><kbd>SPACE</kbd></span> to use it.</li>
         <li>Each Sol starts at <b>📡 Comms</b> with a <b>real NASA space-weather</b> briefing. Then you have <b>${CRISIS_SECONDS} seconds</b>!</li>
         <li>Nothing is free: shields cost Power, science trips cost Oxygen, solar panels can be folded away.</li>
@@ -871,6 +873,11 @@ class MarsScene extends Phaser.Scene {
     const strays = [];
     this.walls.forEachTile((t) => { if (t.index > 0 && floorIds.has(t.index)) strays.push(t); });
     strays.forEach((t) => this.walls.removeTileAt(t.x, t.y, true, true));
+    // Pathways: every ground tile that is NOT the plain Martian dirt (the most common ground tile) is a path.
+    const counts = {};
+    map.getLayer('Ground').data.forEach((row) => row.forEach((t) => { if (t.index > 0) counts[t.index] = (counts[t.index] || 0) + 1; }));
+    const dirt = Number(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]);
+    this.pathIds = new Set(Object.keys(counts).map(Number).filter((i) => i !== dirt));
     this.walls.setCollisionByExclusion([-1]);   // every remaining wall tile blocks the player
 
     /* ---- interactables ---- */
@@ -1013,7 +1020,9 @@ class MarsScene extends Phaser.Scene {
 
     // movement (dust slows you down)
     const p = this.player;
-    const speed = isDusty() ? DUST_SPEED : WALK_SPEED;
+    const feet = this.ground.getTileAtWorldXY(p.x, p.y + 14);
+    const onPath = !!(feet && this.pathIds.has(feet.index));
+    const speed = (onPath ? PATH_SPEED : WALK_SPEED) * (isDusty() ? DUST_FACTOR : 1);
     let vx = 0, vy = 0;
     if (!UI.modalOpen && S.phase !== 'over') {
       const c = this.cursors, w = this.wasd;
