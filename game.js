@@ -9,6 +9,7 @@
    The shared 'DEMO_KEY' only allows a few requests per hour for everyone on the same network (a classroom or a
    hackathon venue can use it up in minutes). Get your own free key in one minute at https://api.nasa.gov and paste
    it here. You can also add ?key=YOUR_KEY to the address. */
+const CREDIT = '<p class="credit">Created by Pratas Vaidya and Aahan Malhotra</p>';
 const NASA_API_KEY = 'wPRdrwN7DD6rgpJhqWwGC8D8BRQK6bqRLTzgzfPH';
 
 const SOL_GOAL = 10;          // finish Sol 10 to win
@@ -1348,7 +1349,7 @@ function showTitle() {
       if (tutorialSeen()) buttons.push({ label: ':graduation-cap: Training', cls: 'secondary', disabled: loading, onClick: () => { startTutorial(); } });
       return {
         closable: false, icon: ':rocket-launch:', title: 'Mars Outpost Survival',
-        body: `<p>You are the only astronaut on Mars! Keep <b>:lightning: Power</b>, <b>:wind: Oxygen</b> and <b>:orange: Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
+        body: `${CREDIT}<p>You are the only astronaut on Mars! Keep <b>:lightning: Power</b>, <b>:wind: Oxygen</b> and <b>:orange: Food</b> above zero for <b>${SOL_GOAL} Sols</b> (Mars days) while real NASA space weather tries to ruin your day.</p>
           <p class="keys">Walk: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;·&nbsp; Use a pad: <kbd>SPACE</kbd> &nbsp;·&nbsp; Paths are faster!${IS_TOUCH ? ' On a touch screen, use the joystick and the SPACE button.' : ''}</p>
           ${tutorialSeen() ? '' : '<p class="hint">First time? A quick training (under a minute) comes first.</p>'}
           <h3>Pick your challenge</h3><div class="diffs">${diffs}</div>
@@ -1403,11 +1404,11 @@ function showEndModal() {
     body: won
       ? `<p>You survived all ${SOL_GOAL} Sols on Mars at ${S.twist.icon} <b>${S.twist.name}</b>! You handled space weather, long Earth delays and tough trade-offs like a real NASA crew.</p>
          <div class="card">Final supplies: ${Object.keys(RES).map((k) => `${RES[k].icon} ${Math.ceil(S.res[k])}`).join(' &nbsp; ')}<br>:star: Research collected: <b>${S.research}</b></div>
-         ${scoreCard}${badgeCard}`
+         ${scoreCard}${badgeCard}${CREDIT}`
       : `<p>${S.lossReason} You made it to Sol ${S.sol}. :star: Research: ${S.research}.</p>
          <div class="card science"><b>:graduation-cap: What to try:</b> Watch the storm countdown, raise shields or fold the panels <i>before</i> it hits, and HOLD SPACE at a broken pad while you wait for Earth.</div>
          ${scoreCard}${badgeCard}
-         <p class="hint">Real astronauts and mission planners also learn from things that go wrong. Every run is different, so try again!</p>`,
+         <p class="hint">Real astronauts and mission planners also learn from things that go wrong. Every run is different, so try again!</p>${CREDIT}`,
     buttons: [
       { label: ':arrow-clockwise: Play Again', cls: 'good', onClick: () => newGame() },
       { label: ':house: Change challenge', cls: 'secondary', onClick: () => { S.phase = 'title'; showTitle(); } },

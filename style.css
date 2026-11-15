@@ -228,3 +228,7 @@ body.touch { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
   body.warning #vignette { opacity: .8; }
 }
+
+/* ---------- small creator credit on the title and end screens ---------- */
+#modal .credit { margin: -4px 0 6px; font-size: 13px; font-weight: 600; letter-spacing: .03em; color: var(--purple); opacity: .85; }
+#modal .credit:last-child, #modal p.credit:not(:first-child) { margin: 10px 0 0; text-align: center; }
