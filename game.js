@@ -2062,6 +2062,17 @@ window.addEventListener('error', (e) => { if (!scene) fatal(e.message); });
 if (/[?&]debug/.test(location.search)) window.__mars = { S, T, UI, readBriefing, closeModal, startSol, endSol, tick, openComms, get scene() { return scene; } };   // for testing only
 document.querySelectorAll('.ico, #skipTut').forEach((el) => { el.innerHTML = ic(el.textContent); });   // static HUD icons
 setupTouch();
+/* phones: shrink the HUD when the visible screen is short, so it never covers too much of the base */
+function fitHud() {
+  const w = window.innerWidth, h = window.innerHeight;
+  let s = 1;
+  if (w <= 560) s = clamp(h / 720, 0.8, 1);          // held upright
+  else if (h <= 500) s = clamp(h / 460, 0.8, 1);     // held sideways
+  document.documentElement.style.setProperty('--hud-s', s.toFixed(3));
+}
+fitHud();
+window.addEventListener('resize', fitHud);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fitHud);
 renderMute();
 $('mute').addEventListener('click', (e) => { e.currentTarget.blur(); SFX.toggle(); renderMute(); SFX.play('good'); });
 window.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
